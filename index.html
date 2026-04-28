@@ -1,5 +1,1116 @@
-{
-  "returncode" : 0,
-  "stdout" : "<!DOCTYPE html>\n<html lang=\"ko\">\n<head>\n<meta charset=\"UTF-8\"\/>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\"\/>\n<title>PT Manager<\/title>\n<link rel=\"preconnect\" href=\"https:\/\/fonts.googleapis.com\"\/>\n<link href=\"https:\/\/fonts.googleapis.com\/css2?family=Playfair+Display:wght@400;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap\" rel=\"stylesheet\"\/>\n\n<!-- Firebase -->\n<script type=\"module\">\n  import { initializeApp } from \"https:\/\/www.gstatic.com\/firebasejs\/10.12.0\/firebase-app.js\";\n  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from \"https:\/\/www.gstatic.com\/firebasejs\/10.12.0\/firebase-auth.js\";\n  import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp } from \"https:\/\/www.gstatic.com\/firebasejs\/10.12.0\/firebase-firestore.js\";\n\n  const firebaseConfig = {\n    apiKey: \"AIzaSyD9b6lVHPflKlUWz4nmNWK0ykBG8nk7BG0\",\n    authDomain: \"pt-manager-44aff.firebaseapp.com\",\n    projectId: \"pt-manager-44aff\",\n    storageBucket: \"pt-manager-44aff.firebasestorage.app\",\n    messagingSenderId: \"400331343139\",\n    appId: \"1:400331343139:web:ce3c2c7f2a544752f83896\",\n    measurementId: \"G-7EL65FMBMB\"\n  };\n\n  const app = initializeApp(firebaseConfig);\n  const auth = getAuth(app);\n  const db = getFirestore(app);\n\n  window._fb = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp };\n  window.dispatchEvent(new Event(\"fb-ready\"));\n<\/script>\n\n<style>\n*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}\nhtml,body{background:#060606;color:#fff;font-family:'Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;height:100%}\ninput,select,textarea,button{font-family:'Noto Sans KR',sans-serif}\ninput[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}\n::-webkit-scrollbar{width:3px}\n::-webkit-scrollbar-thumb{background:#222;border-radius:9px}\ninput::placeholder,textarea::placeholder{color:#2a2a2a}\n@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}\n@keyframes fadeIn{from{opacity:0}to{opacity:1}}\n@keyframes spin{to{transform:rotate(360deg)}}\n@keyframes pulse{0%,100%{opacity:.3}50%{opacity:.8}}\n.a0{animation:fadeUp .35s ease both}\n.a1{animation:fadeUp .35s .07s ease both;opacity:0}\n.a2{animation:fadeUp .35s .14s ease both;opacity:0}\n.ov{animation:fadeIn .2s ease both}\n.spin{animation:spin .8s linear infinite;display:inline-block}\n<\/style>\n<\/head>\n<body>\n<div id=\"app\"><\/div>\n\n<script>\n\/\/ ── 디자인 토큰\nconst T={bg:\"#060606\",surface:\"#0e0e0e\",surface2:\"#141414\",surface3:\"#1a1a1a\",border:\"#1e1e1e\",border2:\"#272727\",text:\"#ffffff\",text2:\"#888\",text3:\"#444\",text4:\"#2a2a2a\",green:\"#5ee89a\",red:\"#f87171\"};\n\n\/\/ ── 칼로리 DB\nconst KCAL={닭가슴살:165,현미밥:218,백미밥:300,고구마:131,달걀:78,삶은달걀:78,단백질쉐이크:120,오트밀:370,샐러드:80,연어:208,참치:132,두부:76,브로콜리:34,아보카도:160,바나나:89,사과:52,요거트:100,그릭요거트:59,아몬드:579,견과류:600,우유:61,두유:54,닭볶음탕:180,삼겹살:518,된장찌개:90,김치찌개:75,비빔밥:490,불고기:215,갈비탕:210,삼계탕:250,짜장면:520,짬뽕:450,볶음밥:400,김밥:320,샌드위치:310,식빵:265,떡:350,떡볶이:300,라면:480,우동:400,아메리카노:10,카페라떼:130,카푸치노:110,녹차:2,프로틴바:200,소고기:271,새우:99,고등어:202,계란프라이:90,토스트:265,시리얼:380,치킨:239,피자:266,햄버거:354};\nfunction findKcal(n){if(!n)return null;const s=n.trim().replace(\/\\s+\/g,\"\").toLowerCase();for(const[k,v]of Object.entries(KCAL))if(s.includes(k)||k.includes(s))return v;return null;}\n\n\/\/ ── 앱 상태\nlet STATE={user:null,role:null,myMemberId:null,tab:\"dash\",members:[],logs:[],diets:[],schedules:[],unsubs:[],loading:true};\nlet FB=null;\n\n\/\/ ── 유틸\nconst today=()=>new Date().toISOString().slice(0,10);\nconst uid=()=>FB?.auth?.currentUser?.uid;\nconst el=id=>document.getElementById(id);\nconst h=(tag,props={},children=[])=>{const e=document.createElement(tag);Object.entries(props).forEach(([k,v])=>{if(k===\"style\"&&typeof v===\"object\")Object.assign(e.style,v);else if(k.startsWith(\"on\"))e.addEventListener(k.slice(2).toLowerCase(),v);else e.setAttribute(k,v);});(Array.isArray(children)?children:[children]).forEach(c=>{if(c==null)return;e.appendChild(typeof c===\"string\"?document.createTextNode(c):c);});return e;};\n\n\/\/ ── CSS 공용\nconst INP={width:\"100%\",padding:\"12px 14px\",background:T.surface2,border:`1px solid ${T.border2}`,borderRadius:\"10px\",color:T.text,fontSize:\"14px\",outline:\"none\"};\nconst makeInp=(attrs={},sx={})=>{const i=document.createElement(\"input\");Object.assign(i.style,INP,sx);Object.entries(attrs).forEach(([k,v])=>i.setAttribute(k,v));return i;};\nconst makeSel=(options,val,sx={})=>{const s=document.createElement(\"select\");Object.assign(s.style,{...INP,...sx});options.forEach(o=>{const op=document.createElement(\"option\");op.value=o.val||o;op.textContent=o.label||o;if((o.val||o)===val)op.selected=true;s.appendChild(op);});return s;};\nconst makeTa=(ph,sx={})=>{const t=document.createElement(\"textarea\");Object.assign(t.style,{...INP,minHeight:\"72px\",resize:\"vertical\",...sx});t.placeholder=ph||\"\";return t;};\n\nfunction mkBtn(text,onClick,v=\"white\",sz=\"md\",sx={}){\n  const sizes={sm:{padding:\"7px 14px\",fontSize:\"12px\"},md:{padding:\"11px 22px\",fontSize:\"14px\"},lg:{padding:\"15px 26px\",fontSize:\"15px\"}};\n  const vars={white:{background:\"#fff\",color:\"#000\"},ghost:{background:T.surface2,color:T.text2,border:`1px solid ${T.border2}`},outline:{background:\"transparent\",color:\"#fff\",border:`1px solid ${T.border2}`},danger:{background:\"transparent\",color:T.red,border:`1px solid #3a1515`}};\n  const b=document.createElement(\"button\");\n  Object.assign(b.style,{display:\"inline-flex\",alignItems:\"center\",justifyContent:\"center\",gap:\"6px\",border:\"none\",cursor:\"pointer\",fontWeight:\"600\",letterSpacing:\"0.02em\",transition:\"all .15s\",borderRadius:\"10px\",...vars[v],...sizes[sz],...sx});\n  b.addEventListener(\"click\",onClick);\n  b.innerHTML=text;\n  return b;\n}\n\nfunction mkCard(sx={}){const d=document.createElement(\"div\");Object.assign(d.style,{background:T.surface,border:`1px solid ${T.border}`,borderRadius:\"16px\",padding:\"22px\",...sx});return d;}\n\nfunction mkLabel(text){const p=document.createElement(\"p\");Object.assign(p.style,{fontSize:\"11px\",fontWeight:\"600\",color:T.text3,letterSpacing:\"0.09em\",textTransform:\"uppercase\",marginBottom:\"7px\"});p.textContent=text;return p;}\n\nfunction mkTag(text){const s=document.createElement(\"span\");Object.assign(s.style,{fontSize:\"11px\",color:T.text3,background:T.surface2,border:`1px solid ${T.border2}`,borderRadius:\"99px\",padding:\"3px 10px\",fontWeight:\"500\",whiteSpace:\"nowrap\"});s.textContent=text;return s;}\n\nfunction mkBar(val,max,color=\"#fff\"){\n  const pct=Math.min(Math.round(val\/max*100),100);\n  const wrap=document.createElement(\"div\");\n  Object.assign(wrap.style,{background:T.surface3,borderRadius:\"99px\",height:\"5px\",overflow:\"hidden\"});\n  const fill=document.createElement(\"div\");\n  Object.assign(fill.style,{width:`${pct}%`,background:color,height:\"100%\",borderRadius:\"99px\",transition:\"width .7s ease\"});\n  wrap.appendChild(fill);return wrap;\n}\n\nfunction mkDivider(my=18){const d=document.createElement(\"div\");Object.assign(d.style,{borderTop:`1px solid ${T.border}`,margin:`${my}px 0`});return d;}\n\nfunction mkStars(val,onChange,size=22){\n  const wrap=document.createElement(\"div\");\n  wrap.style.cssText=\"display:flex;gap:4px;\";\n  [1,2,3,4,5].forEach(n=>{\n    const s=document.createElement(\"span\");\n    s.textContent=\"★\";\n    Object.assign(s.style,{fontSize:`${size}px`,cursor:onChange?\"pointer\":\"default\",opacity:n<=val?\"1\":\"0.15\",transition:\"opacity .15s\"});\n    if(onChange)s.addEventListener(\"click\",()=>onChange(n));\n    wrap.appendChild(s);\n  });\n  return wrap;\n}\n\nfunction mkModal(title,content,wide=false){\n  const overlay=document.createElement(\"div\");\n  overlay.className=\"ov\";\n  Object.assign(overlay.style,{position:\"fixed\",inset:\"0\",background:\"rgba(0,0,0,.88)\",zIndex:\"999\",display:\"flex\",alignItems:\"center\",justifyContent:\"center\",padding:\"16px\"});\n  overlay.addEventListener(\"click\",e=>{if(e.target===overlay)overlay.remove();});\n\n  const box=document.createElement(\"div\");\n  box.className=\"a0\";\n  Object.assign(box.style,{background:T.surface,border:`1px solid ${T.border2}`,borderRadius:\"20px\",padding:\"28px\",width:\"100%\",maxWidth:wide?\"560px\":\"460px\",maxHeight:\"90vh\",overflowY:\"auto\"});\n\n  const hd=document.createElement(\"div\");\n  Object.assign(hd.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"center\",marginBottom:\"24px\"});\n  const ttl=document.createElement(\"h3\");\n  Object.assign(ttl.style,{fontFamily:\"'Playfair Display',serif\",fontSize:\"21px\",fontWeight:\"600\",color:T.text});\n  ttl.textContent=title;\n  const closeBtn=document.createElement(\"button\");\n  Object.assign(closeBtn.style,{background:T.surface2,border:\"none\",borderRadius:\"8px\",width:\"34px\",height:\"34px\",cursor:\"pointer\",color:T.text3,fontSize:\"20px\",display:\"flex\",alignItems:\"center\",justifyContent:\"center\"});\n  closeBtn.textContent=\"×\";\n  closeBtn.addEventListener(\"click\",()=>overlay.remove());\n  hd.appendChild(ttl);hd.appendChild(closeBtn);\n  box.appendChild(hd);\n  box.appendChild(content);\n  overlay.appendChild(box);\n  document.body.appendChild(overlay);\n  return {overlay,box};\n}\n\nfunction mkFld(label){const w=document.createElement(\"div\");w.style.marginBottom=\"14px\";if(label){const l=document.createElement(\"label\");Object.assign(l.style,{display:\"block\",fontSize:\"11px\",fontWeight:\"600\",color:T.text3,letterSpacing:\"0.09em\",textTransform:\"uppercase\",marginBottom:\"7px\"});l.textContent=label;w.appendChild(l);}return w;}\n\nfunction mkSectionHeader(eyebrow,title,actionEl=null){\n  const wrap=document.createElement(\"div\");\n  Object.assign(wrap.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"flex-end\",marginBottom:\"28px\"});\n  const left=document.createElement(\"div\");\n  const eye=document.createElement(\"p\");\n  Object.assign(eye.style,{fontSize:\"11px\",color:T.text3,letterSpacing:\"0.12em\",textTransform:\"uppercase\",marginBottom:\"6px\"});\n  eye.textContent=eyebrow;\n  const ttl=document.createElement(\"h2\");\n  Object.assign(ttl.style,{fontFamily:\"'Playfair Display',serif\",fontSize:\"30px\",color:T.text});\n  ttl.textContent=title;\n  left.appendChild(eye);left.appendChild(ttl);wrap.appendChild(left);\n  if(actionEl)wrap.appendChild(actionEl);\n  return wrap;\n}\n\nfunction showToast(msg,ok=true){\n  const t=document.createElement(\"div\");\n  Object.assign(t.style,{position:\"fixed\",bottom:\"100px\",left:\"50%\",transform:\"translateX(-50%)\",background:ok?\"#1a3a2a\":\"#3a1a1a\",color:ok?T.green:T.red,border:`1px solid ${ok?\"#2a5a3a\":\"#5a2a2a\"}`,borderRadius:\"99px\",padding:\"10px 20px\",fontSize:\"13px\",fontWeight:\"600\",zIndex:\"9999\",whiteSpace:\"nowrap\"});\n  t.textContent=msg;\n  document.body.appendChild(t);\n  setTimeout(()=>t.remove(),2500);\n}\n\nfunction mkLoading(){\n  const d=document.createElement(\"div\");\n  Object.assign(d.style,{display:\"flex\",flexDirection:\"column\",alignItems:\"center\",justifyContent:\"center\",padding:\"60px 0\",gap:\"14px\"});\n  const sp=document.createElement(\"div\");\n  Object.assign(sp.style,{width:\"28px\",height:\"28px\",border:`2px solid ${T.border2}`,borderTop:`2px solid #fff`,borderRadius:\"50%\"});\n  sp.className=\"spin\";\n  const p=document.createElement(\"p\");\n  Object.assign(p.style,{color:T.text3,fontSize:\"13px\"});\n  p.textContent=\"불러오는 중...\";\n  d.appendChild(sp);d.appendChild(p);return d;\n}\n\n\/\/ ════════════════════════════════════════\n\/\/ FIREBASE 데이터 CRUD\n\/\/ ════════════════════════════════════════\nasync function loadAllData(){\n  if(!FB||!uid()) return;\n  const {db,collection,query,where,onSnapshot,doc}=FB;\n  const trainerId=uid();\n\n  \/\/ 기존 구독 해제\n  STATE.unsubs.forEach(u=>u());STATE.unsubs=[];\n\n  \/\/ members\n  const mq=query(collection(db,\"members\"),where(\"trainerId\",\"==\",trainerId));\n  const u1=onSnapshot(mq,snap=>{STATE.members=snap.docs.map(d=>({id:d.id,...d.data()}));render();});\n\n  \/\/ logs\n  const lq=query(collection(db,\"logs\"),where(\"trainerId\",\"==\",trainerId));\n  const u2=onSnapshot(lq,snap=>{STATE.logs=snap.docs.map(d=>({id:d.id,...d.data()}));render();});\n\n  \/\/ diets\n  const dq=query(collection(db,\"diets\"),where(\"trainerId\",\"==\",trainerId));\n  const u3=onSnapshot(dq,snap=>{STATE.diets=snap.docs.map(d=>({id:d.id,...d.data()}));render();});\n\n  \/\/ schedules\n  const sq=query(collection(db,\"schedules\"),where(\"trainerId\",\"==\",trainerId));\n  const u4=onSnapshot(sq,snap=>{STATE.schedules=snap.docs.map(d=>({id:d.id,...d.data()}));render();});\n\n  STATE.unsubs=[u1,u2,u3,u4];\n}\n\nasync function loadMemberData(memberId){\n  if(!FB) return;\n  const {db,collection,query,where,onSnapshot}=FB;\n\n  STATE.unsubs.forEach(u=>u());STATE.unsubs=[];\n\n  \/\/ 해당 회원 데이터만\n  const lq=query(collection(db,\"logs\"),where(\"memberId\",\"==\",memberId));\n  const u1=onSnapshot(lq,snap=>{STATE.logs=snap.docs.map(d=>({id:d.id,...d.data()}));render();});\n\n  const dq=query(collection(db,\"diets\"),where(\"memberId\",\"==\",memberId));\n  const u2=onSnapshot(dq,snap=>{STATE.diets=snap.docs.map(d=>({id:d.id,...d.data()}));render();});\n\n  const sq=query(collection(db,\"schedules\"),where(\"memberId\",\"==\",memberId));\n  const u3=onSnapshot(sq,snap=>{STATE.schedules=snap.docs.map(d=>({id:d.id,...d.data()}));render();});\n\n  \/\/ 내 정보\n  const {doc,getDoc}=FB;\n  const me=await getDoc(doc(db,\"members\",memberId));\n  if(me.exists()) STATE.members=[{id:me.id,...me.data()}];\n\n  STATE.unsubs=[u1,u2,u3];\n}\n\nasync function addDoc2(col,data){\n  const {db,collection,addDoc,serverTimestamp}=FB;\n  return addDoc(collection(db,col),{...data,createdAt:serverTimestamp()});\n}\n\nasync function updateDoc2(col,id,data){\n  const {db,doc,updateDoc}=FB;\n  return updateDoc(doc(db,col,id),data);\n}\n\nasync function setDoc2(col,id,data){\n  const {db,doc,setDoc}=FB;\n  return setDoc(doc(db,col,id),data,{merge:true});\n}\n\n\/\/ ════════════════════════════════════════\n\/\/ LOGIN \/ SIGNUP SCREEN\n\/\/ ════════════════════════════════════════\nfunction renderAuth(){\n  const root=el(\"app\");root.innerHTML=\"\";\n  const wrap=document.createElement(\"div\");\n  Object.assign(wrap.style,{minHeight:\"100vh\",background:T.bg,display:\"flex\",alignItems:\"center\",justifyContent:\"center\",padding:\"24px\"});\n\n  const box=document.createElement(\"div\");\n  box.className=\"a0\";\n  Object.assign(box.style,{width:\"100%\",maxWidth:\"400px\"});\n\n  \/\/ 로고\n  const logo=document.createElement(\"div\");\n  Object.assign(logo.style,{textAlign:\"center\",marginBottom:\"48px\"});\n  logo.innerHTML=`\n    <div style=\"width:60px;height:60px;background:#fff;border-radius:16px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:26px\">◼<\/div>\n    <p style=\"font-size:11px;color:${T.text3};letter-spacing:0.18em;text-transform:uppercase;margin-bottom:8px\">Personal Training<\/p>\n    <h1 style=\"font-family:'Playfair Display',serif;font-size:38px;font-weight:700;color:#fff;line-height:1.1\">PT Manager<\/h1>\n    <p style=\"font-size:14px;color:${T.text3};margin-top:10px;font-weight:300\">스마트 트레이닝 관리 시스템<\/p>\n  `;\n\n  \/\/ 탭\n  let authMode=\"login\"; \/\/ login | signup | member\n  const tabWrap=document.createElement(\"div\");\n  Object.assign(tabWrap.style,{display:\"flex\",gap:\"8px\",marginBottom:\"24px\"});\n\n  const mkTab=(label,mode)=>{\n    const b=document.createElement(\"button\");\n    Object.assign(b.style,{flex:\"1\",padding:\"10px\",borderRadius:\"10px\",border:\"none\",cursor:\"pointer\",fontSize:\"13px\",fontWeight:\"600\",transition:\"all .15s\"});\n    b.textContent=label;\n    b.dataset.mode=mode;\n    return b;\n  };\n\n  const tabs=[mkTab(\"트레이너 로그인\",\"login\"),mkTab(\"트레이너 가입\",\"signup\"),mkTab(\"회원 입장\",\"member\")];\n  tabs.forEach(t=>{tabWrap.appendChild(t);t.addEventListener(\"click\",()=>{authMode=t.dataset.mode;updateTabs();updateForm();});});\n\n  const updateTabs=()=>{\n    tabs.forEach(t=>{\n      const active=t.dataset.mode===authMode;\n      Object.assign(t.style,{background:active?\"#fff\":T.surface2,color:active?\"#000\":T.text3,border:active?\"none\":`1px solid ${T.border2}`});\n    });\n  };\n  updateTabs();\n\n  \/\/ 폼 영역\n  const formArea=document.createElement(\"div\");\n\n  const updateForm=()=>{\n    formArea.innerHTML=\"\";\n    if(authMode===\"login\") formArea.appendChild(makeLoginForm());\n    else if(authMode===\"signup\") formArea.appendChild(makeSignupForm());\n    else formArea.appendChild(makeMemberForm());\n  };\n\n  \/\/ 트레이너 로그인\n  const makeLoginForm=()=>{\n    const wrap=document.createElement(\"div\");\n    const emailF=mkFld(\"이메일\");const emailI=makeInp({type:\"email\",placeholder:\"trainer@email.com\"});emailF.appendChild(emailI);\n    const pwF=mkFld(\"비밀번호\");const pwI=makeInp({type:\"password\",placeholder:\"••••••••\"});pwF.appendChild(pwI);\n    const errP=document.createElement(\"p\");Object.assign(errP.style,{color:T.red,fontSize:\"13px\",marginBottom:\"12px\",textAlign:\"center\",minHeight:\"18px\"});\n    const loginBtn=mkBtn(\"로그인\",\"\",  \"white\",\"lg\",{width:\"100%\"});\n    loginBtn.addEventListener(\"click\",async()=>{\n      errP.textContent=\"\";\n      loginBtn.innerHTML=`<span class=\"spin\">⟳<\/span> 로그인 중...`;\n      try{\n        await FB.signInWithEmailAndPassword(FB.auth,emailI.value,pwI.value);\n      }catch(e){\n        errP.textContent=\"이메일 또는 비밀번호가 올바르지 않습니다.\";\n        loginBtn.textContent=\"로그인\";\n      }\n    });\n    wrap.appendChild(emailF);wrap.appendChild(pwF);wrap.appendChild(errP);wrap.appendChild(loginBtn);\n    return wrap;\n  };\n\n  \/\/ 트레이너 회원가입\n  const makeSignupForm=()=>{\n    const wrap=document.createElement(\"div\");\n    const nameF=mkFld(\"트레이너 이름\");const nameI=makeInp({type:\"text\",placeholder:\"홍길동 트레이너\"});nameF.appendChild(nameI);\n    const emailF=mkFld(\"이메일\");const emailI=makeInp({type:\"email\",placeholder:\"trainer@email.com\"});emailF.appendChild(emailI);\n    const pwF=mkFld(\"비밀번호 (6자리 이상)\");const pwI=makeInp({type:\"password\",placeholder:\"••••••••\"});pwF.appendChild(pwI);\n    const errP=document.createElement(\"p\");Object.assign(errP.style,{color:T.red,fontSize:\"13px\",marginBottom:\"12px\",textAlign:\"center\",minHeight:\"18px\"});\n    const signupBtn=mkBtn(\"계정 만들기\",\"\",\"white\",\"lg\",{width:\"100%\"});\n    signupBtn.addEventListener(\"click\",async()=>{\n      errP.textContent=\"\";\n      if(!nameI.value){errP.textContent=\"이름을 입력해주세요.\";return;}\n      if(pwI.value.length<6){errP.textContent=\"비밀번호는 6자리 이상이어야 합니다.\";return;}\n      signupBtn.innerHTML=`<span class=\"spin\">⟳<\/span> 생성 중...`;\n      try{\n        const cred=await FB.createUserWithEmailAndPassword(FB.auth,emailI.value,pwI.value);\n        await FB.updateProfile(cred.user,{displayName:nameI.value});\n        \/\/ 트레이너 프로필 저장\n        await setDoc2(\"trainers\",cred.user.uid,{name:nameI.value,email:emailI.value,createdAt:new Date().toISOString()});\n        showToast(\"가입 완료! 환영합니다 💪\");\n      }catch(e){\n        const msgs={\"auth\/email-already-in-use\":\"이미 사용중인 이메일입니다.\",\"auth\/invalid-email\":\"올바른 이메일 형식이 아닙니다.\"};\n        errP.textContent=msgs[e.code]||\"오류가 발생했습니다. 다시 시도해주세요.\";\n        signupBtn.textContent=\"계정 만들기\";\n      }\n    });\n    wrap.appendChild(nameF);wrap.appendChild(emailF);wrap.appendChild(pwF);wrap.appendChild(errP);wrap.appendChild(signupBtn);\n    return wrap;\n  };\n\n  \/\/ 회원 입장\n  const makeMemberForm=()=>{\n    const wrap=document.createElement(\"div\");\n\n    \/\/ 트레이너 이메일로 회원 찾기\n    const tEmailF=mkFld(\"트레이너 이메일\");\n    const tEmailI=makeInp({type:\"email\",placeholder:\"트레이너 이메일 입력\"});\n    tEmailF.appendChild(tEmailI);\n\n    const searchBtn=mkBtn(\"회원 목록 불러오기\",\"\",\"outline\",\"md\",{width:\"100%\",marginBottom:\"14px\"});\n    const memberSel=document.createElement(\"div\");\n    const errP=document.createElement(\"p\");Object.assign(errP.style,{color:T.red,fontSize:\"13px\",marginBottom:\"12px\",textAlign:\"center\",minHeight:\"18px\"});\n\n    searchBtn.addEventListener(\"click\",async()=>{\n      errP.textContent=\"\";memberSel.innerHTML=\"\";\n      searchBtn.innerHTML=`<span class=\"spin\">⟳<\/span> 검색 중...`;\n      try{\n        const {db,collection,query,where,getDocs}=FB;\n        \/\/ 트레이너 찾기\n        const tSnap=await getDocs(query(collection(db,\"trainers\"),where(\"email\",\"==\",tEmailI.value.trim())));\n        if(tSnap.empty){errP.textContent=\"해당 이메일의 트레이너를 찾을 수 없습니다.\";searchBtn.textContent=\"회원 목록 불러오기\";return;}\n        const trainerId=tSnap.docs[0].id;\n\n        \/\/ 회원 목록\n        const mSnap=await getDocs(query(collection(db,\"members\"),where(\"trainerId\",\"==\",trainerId)));\n        if(mSnap.empty){errP.textContent=\"등록된 회원이 없습니다.\";searchBtn.textContent=\"회원 목록 불러오기\";return;}\n\n        const fld=mkFld(\"회원 선택\");\n        const opts=[{val:\"\",label:\"이름을 선택하세요\"},...mSnap.docs.map(d=>({val:d.id,label:d.data().name}))];\n        const sel=makeSel(opts,\"\");\n        fld.appendChild(sel);memberSel.appendChild(fld);\n\n        const enterBtn=mkBtn(\"입장하기\",\"\",\"white\",\"lg\",{width:\"100%\"});\n        enterBtn.addEventListener(\"click\",()=>{\n          if(!sel.value){errP.textContent=\"회원을 선택해주세요.\";return;}\n          STATE.role=\"member\";STATE.myMemberId=sel.value;STATE.tab=\"workout\";\n          loadMemberData(sel.value).then(()=>{STATE.loading=false;render();});\n        });\n        memberSel.appendChild(enterBtn);\n        searchBtn.textContent=\"회원 목록 불러오기\";\n      }catch(e){\n        errP.textContent=\"오류가 발생했습니다.\";\n        searchBtn.textContent=\"회원 목록 불러오기\";\n      }\n    });\n\n    wrap.appendChild(tEmailF);wrap.appendChild(searchBtn);wrap.appendChild(errP);wrap.appendChild(memberSel);\n    return wrap;\n  };\n\n  updateForm();\n  box.appendChild(logo);box.appendChild(tabWrap);box.appendChild(formArea);\n  wrap.appendChild(box);root.appendChild(wrap);\n}\n\n\/\/ ════════════════════════════════════════\n\/\/ 메인 앱 렌더\n\/\/ ════════════════════════════════════════\nfunction render(){\n  if(STATE.loading){renderLoading();return;}\n  if(!STATE.role){renderAuth();return;}\n\n  const root=el(\"app\");root.innerHTML=\"\";\n  const isT=STATE.role===\"trainer\";\n\n  \/\/ Header\n  const hdr=document.createElement(\"div\");\n  Object.assign(hdr.style,{background:T.bg,borderBottom:`1px solid ${T.border}`,padding:\"13px 20px\",display:\"flex\",justifyContent:\"space-between\",alignItems:\"center\",position:\"sticky\",top:\"0\",zIndex:\"200\"});\n\n  const trainerName=FB?.auth?.currentUser?.displayName||\"트레이너\";\n  const myMember=STATE.members.find(x=>x.id===STATE.myMemberId);\n\n  hdr.innerHTML=`\n    <div style=\"display:flex;align-items:center;gap:11px\">\n      <div style=\"width:32px;height:32px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px\">◼<\/div>\n      <div>\n        <p style=\"font-family:'Playfair Display',serif;font-size:15px;color:${T.text};line-height:1.1\">PT Manager<\/p>\n        <p style=\"font-size:10px;color:${T.text3};letter-spacing:0.07em;margin-top:1px\">${isT?trainerName+\" · TRAINER\":(myMember?.name||\"\")+\" · MEMBER\"}<\/p>\n      <\/div>\n    <\/div>\n  `;\n  const logoutBtn=mkBtn(\"로그아웃\",async()=>{\n    STATE.unsubs.forEach(u=>u());STATE.unsubs=[];\n    if(isT){await FB.signOut(FB.auth);}\n    else{STATE.role=null;STATE.myMemberId=null;STATE.members=[];STATE.logs=[];STATE.diets=[];STATE.schedules=[];render();}\n  },\"ghost\",\"sm\");\n  hdr.appendChild(logoutBtn);\n\n  \/\/ Content\n  const content=document.createElement(\"div\");\n  Object.assign(content.style,{padding:\"28px 18px 110px\",maxWidth:\"600px\",margin:\"0 auto\"});\n  content.className=\"a0\";\n\n  const TRAINER_TABS=[{id:\"dash\",label:\"홈\"},{id:\"members\",label:\"회원\"},{id:\"workout\",label:\"운동\"},{id:\"diet_review\",label:\"식단\"},{id:\"schedule\",label:\"일정\"}];\n  const MEMBER_TABS=[{id:\"workout\",label:\"운동일지\"},{id:\"diet\",label:\"식단\"},{id:\"weight\",label:\"체중\"},{id:\"schedule\",label:\"일정\"}];\n  const tabs=isT?TRAINER_TABS:MEMBER_TABS;\n\n  \/\/ 탭 콘텐츠\n  if(STATE.tab===\"dash\"&&isT) content.appendChild(renderDashboard());\n  else if(STATE.tab===\"members\"&&isT) content.appendChild(renderMembers());\n  else if(STATE.tab===\"workout\") content.appendChild(renderWorkout());\n  else if(STATE.tab===\"diet_review\"&&isT) content.appendChild(renderDietReview());\n  else if(STATE.tab===\"diet\"&&!isT) content.appendChild(renderDietMember());\n  else if(STATE.tab===\"weight\"&&!isT) content.appendChild(renderWeight());\n  else if(STATE.tab===\"schedule\") content.appendChild(renderSchedule());\n\n  \/\/ Tab Bar\n  const tabBar=document.createElement(\"div\");\n  Object.assign(tabBar.style,{position:\"fixed\",bottom:\"0\",left:\"0\",right:\"0\",background:T.bg,borderTop:`1px solid ${T.border}`,display:\"flex\",justifyContent:\"space-around\",padding:\"10px 0\",zIndex:\"200\"});\n  tabs.forEach(t=>{\n    const btn=document.createElement(\"button\");\n    Object.assign(btn.style,{background:\"none\",border:\"none\",cursor:\"pointer\",display:\"flex\",flexDirection:\"column\",alignItems:\"center\",gap:\"5px\",padding:\"4px 16px\",position:\"relative\"});\n    const active=STATE.tab===t.id;\n    if(active){const bar=document.createElement(\"div\");Object.assign(bar.style,{position:\"absolute\",top:\"-1px\",left:\"50%\",transform:\"translateX(-50%)\",width:\"20px\",height:\"2px\",background:\"#fff\",borderRadius:\"99px\"});btn.appendChild(bar);}\n    const lbl=document.createElement(\"span\");\n    Object.assign(lbl.style,{fontSize:\"12px\",fontWeight:active?\"700\":\"400\",color:active?T.text:T.text3,letterSpacing:\"0.01em\"});\n    lbl.textContent=t.label;btn.appendChild(lbl);\n    btn.addEventListener(\"click\",()=>{STATE.tab=t.id;render();});\n    tabBar.appendChild(btn);\n  });\n\n  root.appendChild(hdr);root.appendChild(content);root.appendChild(tabBar);\n}\n\nfunction renderLoading(){\n  const root=el(\"app\");root.innerHTML=\"\";\n  const wrap=document.createElement(\"div\");\n  Object.assign(wrap.style,{minHeight:\"100vh\",background:T.bg,display:\"flex\",alignItems:\"center\",justifyContent:\"center\",flexDirection:\"column\",gap:\"16px\"});\n  const sp=document.createElement(\"div\");\n  Object.assign(sp.style,{width:\"32px\",height:\"32px\",border:`2px solid ${T.border2}`,borderTop:\"2px solid #fff\",borderRadius:\"50%\"});\n  sp.className=\"spin\";\n  const p=document.createElement(\"p\");Object.assign(p.style,{color:T.text3,fontSize:\"14px\"});p.textContent=\"PT Manager\";\n  wrap.appendChild(sp);wrap.appendChild(p);root.appendChild(wrap);\n}\n\n\/\/ ── 대시보드\nfunction renderDashboard(){\n  const wrap=document.createElement(\"div\");\n  const hdr=document.createElement(\"div\");hdr.style.marginBottom=\"28px\";\n  hdr.innerHTML=`<p style=\"font-size:11px;color:${T.text3};letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px\">Dashboard<\/p><h2 style=\"font-family:'Playfair Display',serif;font-size:30px;color:${T.text}\">오늘의 현황<\/h2><p style=\"font-size:13px;color:${T.text3};margin-top:5px\">${new Date().toLocaleDateString(\"ko-KR\",{year:\"numeric\",month:\"long\",day:\"numeric\",weekday:\"long\"})}<\/p>`;\n  wrap.appendChild(hdr);\n\n  \/\/ PT 진행률\n  const ptCard=mkCard({marginBottom:\"14px\"});\n  const ptHd=document.createElement(\"div\");Object.assign(ptHd.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"center\",marginBottom:\"22px\"});\n  ptHd.appendChild(mkLabel(\"PT 진행률\"));ptHd.appendChild(mkTag(`${STATE.members.length}명`));ptCard.appendChild(ptHd);\n\n  if(STATE.members.length===0){const p=document.createElement(\"p\");Object.assign(p.style,{color:T.text4,fontSize:\"14px\",textAlign:\"center\",padding:\"20px 0\"});p.textContent=\"등록된 회원이 없습니다\";ptCard.appendChild(p);}\n  else STATE.members.forEach((m,i)=>{\n    const row=document.createElement(\"div\");row.style.marginBottom=i<STATE.members.length-1?\"24px\":\"0\";\n    const rem=m.sessions-m.used,pct=Math.round(m.used\/m.sessions*100);\n    const wLog=m.weightLog||[],diff=wLog.length>=2?(wLog.at(-1).w-wLog[0].w).toFixed(1):null;\n    const low=rem<=3;\n    const top=document.createElement(\"div\");Object.assign(top.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"center\",marginBottom:\"8px\"});\n    const left=document.createElement(\"div\");Object.assign(left.style,{display:\"flex\",alignItems:\"center\",gap:\"8px\"});\n    const nm=document.createElement(\"span\");Object.assign(nm.style,{fontSize:\"15px\",fontWeight:\"600\",color:T.text});nm.textContent=m.name;\n    left.appendChild(nm);left.appendChild(mkTag(m.goal));\n    const right=document.createElement(\"div\");Object.assign(right.style,{display:\"flex\",alignItems:\"center\",gap:\"12px\"});\n    if(diff!==null){const d=document.createElement(\"span\");Object.assign(d.style,{fontSize:\"12px\",fontWeight:\"600\",color:+diff<0?T.green:+diff>0?T.red:T.text3});d.textContent=`${+diff>0?\"+\":\"\"}${diff}kg`;right.appendChild(d);}\n    const remEl=document.createElement(\"span\");Object.assign(remEl.style,{fontFamily:\"'Playfair Display',serif\",fontSize:\"18px\",color:low?T.red:T.text});remEl.innerHTML=`${rem}<span style=\"font-size:11px;color:${T.text3};margin-left:3px\">회 남음<\/span>`;right.appendChild(remEl);\n    top.appendChild(left);top.appendChild(right);row.appendChild(top);\n    row.appendChild(mkBar(m.used,m.sessions,low?T.red:\"#fff\"));\n    const sub=document.createElement(\"p\");Object.assign(sub.style,{fontSize:\"11px\",color:T.text4,marginTop:\"5px\",textAlign:\"right\"});sub.textContent=`${m.used}\/${m.sessions}회 · ${pct}%`;row.appendChild(sub);\n    ptCard.appendChild(row);\n  });\n  wrap.appendChild(ptCard);\n\n  \/\/ 오늘 일정\n  const todayStr=today();\n  const todayList=[...STATE.schedules.filter(s=>s.date===todayStr)].sort((a,b)=>a.time.localeCompare(b.time));\n  const schCard=mkCard();\n  const schHd=document.createElement(\"div\");Object.assign(schHd.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"center\",marginBottom:\"20px\"});\n  schHd.appendChild(mkLabel(\"오늘 일정\"));schHd.appendChild(mkTag(`${todayList.length}건`));schCard.appendChild(schHd);\n\n  if(todayList.length===0){const p=document.createElement(\"p\");Object.assign(p.style,{color:T.text4,fontSize:\"14px\",textAlign:\"center\",padding:\"24px 0\"});p.textContent=\"오늘 예정된 세션이 없습니다\";schCard.appendChild(p);}\n  else todayList.forEach((s,i)=>{\n    const m=STATE.members.find(x=>x.id===s.memberId);\n    const row=document.createElement(\"div\");Object.assign(row.style,{display:\"flex\",alignItems:\"center\",gap:\"14px\",padding:\"13px 0\",borderTop:i===0?`1px solid ${T.border}`:\"none\",borderBottom:`1px solid ${T.border}`});\n    const time=document.createElement(\"div\");Object.assign(time.style,{background:T.surface2,borderRadius:\"10px\",padding:\"8px 14px\",minWidth:\"64px\",textAlign:\"center\"});time.innerHTML=`<p style=\"font-family:'Playfair Display',serif;font-size:17px;color:${T.text}\">${s.time}<\/p>`;\n    const info=document.createElement(\"div\");info.style.flex=\"1\";info.innerHTML=`<p style=\"font-size:15px;font-weight:600;color:${T.text}\">${m?.name||\"\"}<\/p><p style=\"font-size:12px;color:${T.text3};margin-top:2px\">${s.duration}분<\/p>`;\n    row.appendChild(time);row.appendChild(info);\n    if(s.status===\"완료\"){const badge=document.createElement(\"span\");Object.assign(badge.style,{fontSize:\"11px\",color:T.green,background:\"#0b1f14\",border:\"1px solid #1a3528\",borderRadius:\"99px\",padding:\"4px 11px\"});badge.textContent=\"완료\";row.appendChild(badge);}\n    else{const btn=mkBtn(\"완료\",async()=>{await updateDoc2(\"schedules\",s.id,{status:\"완료\"});showToast(\"완료 처리되었습니다\");},  \"outline\",\"sm\");row.appendChild(btn);}\n    schCard.appendChild(row);\n  });\n  wrap.appendChild(schCard);\n  return wrap;\n}\n\n\/\/ ── 회원 관리\nfunction renderMembers(){\n  const wrap=document.createElement(\"div\");\n  const GOALS=[\"체중감량\",\"근육증가\",\"체력향상\",\"재활\",\"다이어트\",\"체형교정\",\"유지\"];\n\n  \/\/ 상세 보기 상태\n  let detailId=null;\n\n  const renderList=()=>{\n    wrap.innerHTML=\"\";\n    const hdr=mkSectionHeader(\"Members\",\"회원 관리\",mkBtn(\"+ 신규 등록\",()=>showAddModal(),\"white\",\"md\"));\n    wrap.appendChild(hdr);\n\n    if(STATE.members.length===0){const p=document.createElement(\"p\");Object.assign(p.style,{color:T.text4,fontSize:\"14px\",textAlign:\"center\",padding:\"60px 0\"});p.textContent=\"등록된 회원이 없습니다\";wrap.appendChild(p);return;}\n\n    STATE.members.forEach(m=>{\n      const wLog=m.weightLog||[],w0=wLog[0]?.w,wN=wLog.at(-1)?.w;\n      const diff=wLog.length>=2?(wN-w0).toFixed(1):null,rem=m.sessions-m.used;\n      const card=mkCard({marginBottom:\"12px\",cursor:\"pointer\"});\n      card.addEventListener(\"click\",()=>{detailId=m.id;renderDetail();});\n\n      const top=document.createElement(\"div\");Object.assign(top.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"flex-start\",marginBottom:\"16px\"});\n      const tl=document.createElement(\"div\");\n      tl.innerHTML=`<div style=\"display:flex;align-items:center;gap:8px;margin-bottom:4px\"><span style=\"font-family:'Playfair Display',serif;font-size:20px;color:${T.text}\">${m.name}<\/span><\/div><p style=\"font-size:12px;color:${T.text3}\">${m.phone||\"\"}<\/p>`;\n      tl.querySelector(\"div\").appendChild(mkTag(`${m.age}세 ${m.gender}`));\n      top.appendChild(tl);top.appendChild(mkTag(m.goal));card.appendChild(top);\n\n      const grid=document.createElement(\"div\");Object.assign(grid.style,{display:\"grid\",gridTemplateColumns:\"repeat(4,1fr)\",gap:\"8px\",marginBottom:\"14px\"});\n      [[\"키\",`${m.height}cm`],[\"체중\",`${wN}kg`],[\"변화\",diff!==null?`${+diff>0?\"+\":\"\"}${diff}kg`:\"—\"],[\"잔여PT\",`${rem}회`]].forEach(([k,v])=>{\n        const cell=document.createElement(\"div\");Object.assign(cell.style,{background:T.surface2,borderRadius:\"10px\",padding:\"10px 12px\"});\n        cell.innerHTML=`<p style=\"font-size:10px;color:${T.text4};margin-bottom:5px\">${k}<\/p><p style=\"font-family:'Playfair Display',serif;font-size:17px;color:${k===\"잔여PT\"&&rem<=3?T.red:k===\"변화\"&&diff!==null?(+diff<0?T.green:+diff>0?T.red:T.text):T.text}\">${v}<\/p>`;\n        grid.appendChild(cell);\n      });\n      card.appendChild(grid);card.appendChild(mkBar(m.used,m.sessions));wrap.appendChild(card);\n    });\n  };\n\n  const renderDetail=()=>{\n    wrap.innerHTML=\"\";\n    const m=STATE.members.find(x=>x.id===detailId);if(!m)return renderList();\n    const wLog=m.weightLog||[],w0=wLog[0]?.w,wN=wLog.at(-1)?.w;\n    const diff=wLog.length>=2?(wN-w0).toFixed(1):null;\n\n    const backBtn=mkBtn(\"← 목록으로\",()=>renderList(),\"ghost\",\"sm\",{marginBottom:\"22px\"});wrap.appendChild(backBtn);\n\n    const nameWrap=document.createElement(\"div\");nameWrap.style.marginBottom=\"24px\";\n    nameWrap.innerHTML=`<h2 style=\"font-family:'Playfair Display',serif;font-size:32px;color:${T.text};margin-bottom:8px\">${m.name}<\/h2>`;\n    const tags=document.createElement(\"div\");tags.style.cssText=\"display:flex;gap:8px;flex-wrap:wrap;\";\n    [mkTag(`${m.age}세 ${m.gender}`),mkTag(m.goal),mkTag(`등록 ${m.startDate}`)].forEach(t=>tags.appendChild(t));\n    nameWrap.appendChild(tags);wrap.appendChild(nameWrap);\n\n    \/\/ 체중 카드\n    const wCard=mkCard({marginBottom:\"12px\"});wCard.appendChild(mkLabel(\"체중 변화\"));\n    const wGrid=document.createElement(\"div\");Object.assign(wGrid.style,{display:\"grid\",gridTemplateColumns:\"1fr 1fr 1fr\",gap:\"10px\",marginTop:\"14px\",marginBottom:\"18px\"});\n    [[\"최초\",`${w0}kg`],[\"현재\",`${wN}kg`],[\"총 변화\",diff!==null?`${+diff>0?\"+\":\"\"}${diff}kg`:\"—\"]].forEach(([k,v])=>{\n      const cell=document.createElement(\"div\");Object.assign(cell.style,{background:T.surface2,borderRadius:\"12px\",padding:\"14px\"});\n      cell.innerHTML=`<p style=\"font-size:10px;color:${T.text4};margin-bottom:6px\">${k}<\/p><p style=\"font-family:'Playfair Display',serif;font-size:22px;color:${k===\"총 변화\"&&diff!==null?(+diff<0?T.green:+diff>0?T.red:T.text):T.text}\">${v}<\/p>`;\n      wGrid.appendChild(cell);\n    });\n    wCard.appendChild(wGrid);\n    const wHistLabel=document.createElement(\"p\");Object.assign(wHistLabel.style,{fontSize:\"11px\",color:T.text3,letterSpacing:\"0.08em\",textTransform:\"uppercase\",marginBottom:\"12px\"});wHistLabel.textContent=\"기록 내역\";wCard.appendChild(wHistLabel);\n    [...wLog].reverse().slice(0,6).forEach(w=>{\n      const row=document.createElement(\"div\");Object.assign(row.style,{display:\"flex\",justifyContent:\"space-between\",padding:\"8px 0\",borderBottom:`1px solid ${T.border}`});\n      row.innerHTML=`<span style=\"font-size:13px;color:${T.text3}\">${w.date}<\/span><span style=\"font-family:'Playfair Display',serif;font-size:17px;color:${T.text}\">${w.w} kg<\/span>`;\n      wCard.appendChild(row);\n    });\n    const noteW=document.createElement(\"p\");Object.assign(noteW.style,{fontSize:\"11px\",color:T.text4,marginTop:\"12px\",textAlign:\"center\"});noteW.textContent=\"* 체중은 회원이 직접 입력합니다\";wCard.appendChild(noteW);\n    wrap.appendChild(wCard);\n\n    \/\/ 신체 정보 카드\n    const bCard=mkCard({marginBottom:\"12px\"});bCard.appendChild(mkLabel(\"신체 정보\"));\n    const bGrid=document.createElement(\"div\");Object.assign(bGrid.style,{display:\"grid\",gridTemplateColumns:\"1fr 1fr\",gap:\"8px\",marginTop:\"14px\"});\n    [[\"키\",`${m.height}cm`],[\"전화번호\",m.phone||\"-\"],[\"PT 잔여\",`${m.sessions-m.used}회`],[\"진행 현황\",`${m.used}\/${m.sessions}회`]].forEach(([k,v])=>{\n      const cell=document.createElement(\"div\");Object.assign(cell.style,{background:T.surface2,borderRadius:\"10px\",padding:\"12px 14px\"});\n      cell.innerHTML=`<p style=\"font-size:10px;color:${T.text4};margin-bottom:5px\">${k}<\/p><p style=\"font-size:15px;font-weight:600;color:${T.text}\">${v}<\/p>`;\n      bGrid.appendChild(cell);\n    });\n    bCard.appendChild(bGrid);bCard.appendChild(document.createElement(\"div\")).style.marginTop=\"14px\";bCard.appendChild(mkBar(m.used,m.sessions));wrap.appendChild(bCard);\n\n    if(m.memo){const mCard=mkCard();mCard.appendChild(mkLabel(\"트레이너 메모\"));const mp=document.createElement(\"p\");Object.assign(mp.style,{fontSize:\"14px\",color:T.text2,lineHeight:\"1.75\",marginTop:\"10px\"});mp.textContent=m.memo;mCard.appendChild(mp);wrap.appendChild(mCard);}\n  };\n\n  const showAddModal=()=>{\n    const content=document.createElement(\"div\");\n    const grid=document.createElement(\"div\");Object.assign(grid.style,{display:\"grid\",gridTemplateColumns:\"1fr 1fr\",gap:\"10px\"});\n\n    const fields={};\n    const addGridField=(label,key,type,ph,col)=>{\n      const f=mkFld(label);if(col)f.style.gridColumn=col;\n      const i=makeInp({type:type||\"text\",placeholder:ph||\"\"});\n      f.appendChild(i);grid.appendChild(f);fields[key]=i;\n    };\n    addGridField(\"이름\",\"name\",\"text\",\"홍길동\",\"1\/-1\");\n    addGridField(\"나이\",\"age\",\"number\",\"25\");\n    const gFld=mkFld(\"성별\");const gSel=makeSel([\"여\",\"남\"],\"여\");gFld.appendChild(gSel);grid.appendChild(gFld);fields.gender=gSel;\n    const goFld=mkFld(\"운동 목표\");goFld.style.gridColumn=\"1\/-1\";const goSel=makeSel(GOALS,GOALS[0]);goFld.appendChild(goSel);grid.appendChild(goFld);fields.goal=goSel;\n    addGridField(\"키 (cm)\",\"height\",\"number\",\"165\");\n    addGridField(\"초기 체중 (kg)\",\"initWeight\",\"number\",\"60.0\");\n    addGridField(\"PT 총 횟수\",\"sessions\",\"number\",\"20\");\n    addGridField(\"전화번호\",\"phone\",\"text\",\"010-0000-0000\");\n    const mFld=mkFld(\"메모 \/ 특이사항\");mFld.style.gridColumn=\"1\/-1\";const mTa=makeTa(\"부상 이력, 주의사항 등\");mFld.appendChild(mTa);grid.appendChild(mFld);fields.memo=mTa;\n    content.appendChild(grid);\n\n    const saveBtn=mkBtn(\"등록하기\",async()=>{\n      const name=fields.name.value.trim();if(!name){showToast(\"이름을 입력해주세요\",false);return;}\n      const w=+fields.initWeight.value,td=today();\n      saveBtn.innerHTML=`<span class=\"spin\">⟳<\/span> 저장 중...`;\n      try{\n        await addDoc2(\"members\",{\n          trainerId:uid(),name,age:+fields.age.value,gender:fields.gender.value,\n          goal:fields.goal.value,sessions:+fields.sessions.value,used:0,\n          startDate:td,height:+fields.height.value,phone:fields.phone.value,\n          memo:fields.memo.value,weightLog:[{date:td,w}],\n        });\n        showToast(`${name}님 등록 완료!`);\n        document.querySelector(\".ov\")?.remove();\n      }catch(e){showToast(\"오류가 발생했습니다\",false);saveBtn.textContent=\"등록하기\";}\n    },\"white\",\"lg\",{width:\"100%\",marginTop:\"6px\"});\n    content.appendChild(saveBtn);\n    mkModal(\"신규 회원 등록\",content,true);\n  };\n\n  renderList();\n  return wrap;\n}\n\n\/\/ ── 운동일지\nfunction renderWorkout(){\n  const wrap=document.createElement(\"div\");\n  const isT=STATE.role===\"trainer\";\n  let filter=isT?\"all\":STATE.myMemberId;\n\n  const rerender=()=>{\n    wrap.innerHTML=\"\";\n    const hdr=mkSectionHeader(\"Workout\",\"운동일지\",mkBtn(\"+ 기록하기\",()=>showAddModal(),\"white\",\"md\"));\n    wrap.appendChild(hdr);\n\n    if(isT){\n      const filterWrap=document.createElement(\"div\");Object.assign(filterWrap.style,{display:\"flex\",gap:\"8px\",marginBottom:\"22px\",overflowX:\"auto\",paddingBottom:\"4px\"});\n      [{id:\"all\",name:\"전체\"},...STATE.members].forEach(m=>{\n        const b=document.createElement(\"button\");const active=filter===(m.id===\"all\"?\"all\":m.id);\n        Object.assign(b.style,{padding:\"7px 16px\",borderRadius:\"99px\",border:`1px solid ${active?\"#fff\":T.border2}`,background:active?\"#fff\":\"transparent\",color:active?\"#000\":T.text3,fontSize:\"13px\",fontWeight:\"600\",cursor:\"pointer\",whiteSpace:\"nowrap\"});\n        b.textContent=m.name;b.addEventListener(\"click\",()=>{filter=m.id===\"all\"?\"all\":m.id;rerender();});\n        filterWrap.appendChild(b);\n      });\n      wrap.appendChild(filterWrap);\n    }\n\n    const shown=[...(filter===\"all\"?STATE.logs:STATE.logs.filter(l=>l.memberId===filter))].sort((a,b)=>b.date.localeCompare(a.date));\n\n    if(shown.length===0){const p=document.createElement(\"p\");Object.assign(p.style,{color:T.text4,fontSize:\"14px\",textAlign:\"center\",padding:\"60px 0\"});p.textContent=\"기록이 없습니다\";wrap.appendChild(p);return;}\n\n    shown.forEach(log=>{\n      const m=STATE.members.find(x=>x.id===log.memberId);\n      const vol=log.exercises.reduce((a,e)=>a+e.sets*e.reps*(e.weight||0),0);\n      const card=mkCard({marginBottom:\"12px\"});\n\n      const top=document.createElement(\"div\");Object.assign(top.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"flex-start\",marginBottom:\"18px\"});\n      top.innerHTML=`<div><p style=\"font-family:'Playfair Display',serif;font-size:19px;color:${T.text};margin-bottom:3px\">${m?.name||\"\"}<\/p><p style=\"font-size:12px;color:${T.text3}\">${log.date}<\/p><\/div><div style=\"text-align:right\"><p style=\"font-family:'Playfair Display',serif;font-size:17px;color:${T.text2}\">${log.exercises.length}종목<\/p>${vol>0?`<p style=\"font-size:11px;color:${T.text3};margin-top:2px\">${vol.toLocaleString()}kg vol<\/p>`:\"\"}<\/div>`;\n      card.appendChild(top);\n\n      const thRow=document.createElement(\"div\");Object.assign(thRow.style,{display:\"grid\",gridTemplateColumns:\"2fr 1fr 1fr 1fr\",gap:\"6px\",paddingBottom:\"9px\",borderBottom:`1px solid ${T.border}`,marginBottom:\"4px\"});\n      [\"운동명\",\"세트\",\"횟수\",\"무게\"].forEach(h=>{const p=document.createElement(\"p\");Object.assign(p.style,{fontSize:\"10px\",color:T.text4,letterSpacing:\"0.07em\",textTransform:\"uppercase\"});p.textContent=h;thRow.appendChild(p);});\n      card.appendChild(thRow);\n\n      log.exercises.forEach((ex,i)=>{\n        const row=document.createElement(\"div\");Object.assign(row.style,{display:\"grid\",gridTemplateColumns:\"2fr 1fr 1fr 1fr\",gap:\"6px\",padding:\"9px 0\",borderBottom:i<log.exercises.length-1?`1px solid ${T.surface2}`:\"none\"});\n        row.innerHTML=`<p style=\"font-size:14px;font-weight:600;color:#e5e5e5\">${ex.name}<\/p><p style=\"font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}\">${ex.sets}<\/p><p style=\"font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}\">${ex.reps}<\/p><p style=\"font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}\">${ex.weight>0?ex.weight+\"kg\":\"—\"}<\/p>`;\n        card.appendChild(row);\n      });\n      if(log.note){const np=document.createElement(\"p\");Object.assign(np.style,{marginTop:\"14px\",fontSize:\"13px\",color:T.text3,lineHeight:\"1.7\",paddingTop:\"14px\",borderTop:`1px solid ${T.border}`});np.textContent=log.note;card.appendChild(np);}\n      wrap.appendChild(card);\n    });\n  };\n\n  const showAddModal=()=>{\n    const content=document.createElement(\"div\");\n    let exercises=[{name:\"\",sets:\"\",reps:\"\",weight:\"\"}];\n    const memberId=isT?\"\":STATE.myMemberId;\n    let selMemberId=memberId;\n\n    if(isT){const mf=mkFld(\"회원\");const ms=makeSel([{val:\"\",label:\"회원 선택\"},...STATE.members.map(m=>({val:m.id,label:m.name}))],  \"\");ms.addEventListener(\"change\",e=>selMemberId=e.target.value);mf.appendChild(ms);content.appendChild(mf);}\n\n    const dateFld=mkFld(\"날짜\");const dateI=makeInp({type:\"date\",value:today()});dateFld.appendChild(dateI);content.appendChild(dateFld);\n\n    const exLabel=mkLabel(\"운동 목록\");content.appendChild(exLabel);\n    const thRow=document.createElement(\"div\");Object.assign(thRow.style,{display:\"grid\",gridTemplateColumns:\"2fr 1fr 1fr 1fr 28px\",gap:\"6px\",marginBottom:\"8px\",marginTop:\"8px\"});\n    [\"운동명\",\"세트\",\"횟수\",\"무게(kg)\",\"\"].forEach(h=>{const p=document.createElement(\"p\");Object.assign(p.style,{fontSize:\"10px\",color:T.text4});p.textContent=h;thRow.appendChild(p);});\n    content.appendChild(thRow);\n\n    const exWrap=document.createElement(\"div\");content.appendChild(exWrap);\n    const exInputs=[];\n\n    const addExRow=()=>{\n      const row=document.createElement(\"div\");Object.assign(row.style,{display:\"grid\",gridTemplateColumns:\"2fr 1fr 1fr 1fr 28px\",gap:\"6px\",marginBottom:\"8px\"});\n      const ni=makeInp({type:\"text\",placeholder:\"스쿼트\"},{padding:\"10px 12px\"});\n      const si=makeInp({type:\"number\",placeholder:\"4\"},{padding:\"10px\"});\n      const ri=makeInp({type:\"number\",placeholder:\"12\"},{padding:\"10px\"});\n      const wi=makeInp({type:\"number\",placeholder:\"60\"},{padding:\"10px\"});\n      const del=document.createElement(\"button\");Object.assign(del.style,{background:T.surface2,border:`1px solid ${T.border2}`,borderRadius:\"8px\",color:T.text3,cursor:\"pointer\",fontSize:\"16px\"});del.textContent=\"×\";\n      del.addEventListener(\"click\",()=>{row.remove();exInputs.splice(exInputs.findIndex(e=>e.row===row),1);});\n      [ni,si,ri,wi,del].forEach(x=>row.appendChild(x));\n      exWrap.appendChild(row);exInputs.push({row,ni,si,ri,wi});\n    };\n    addExRow();\n\n    const addBtn=mkBtn(\"+ 운동 추가\",addExRow,\"ghost\",\"sm\",{marginBottom:\"16px\"});content.appendChild(addBtn);\n    const noteFld=mkFld(\"메모 (선택)\");const noteTa=makeTa(\"오늘 세션 특이사항, 다음 목표 등\");noteFld.appendChild(noteTa);content.appendChild(noteFld);\n\n    const saveBtn=mkBtn(\"저장하기\",async()=>{\n      const mid=isT?selMemberId:STATE.myMemberId;\n      if(!mid){showToast(\"회원을 선택해주세요\",false);return;}\n      const exs=exInputs.filter(e=>e.ni.value).map(e=>({name:e.ni.value,sets:+e.si.value,reps:+e.ri.value,weight:+e.wi.value}));\n      if(!exs.length){showToast(\"운동을 입력해주세요\",false);return;}\n      saveBtn.innerHTML=`<span class=\"spin\">⟳<\/span> 저장 중...`;\n      const trainerId=STATE.role===\"trainer\"?uid():STATE.members.find(x=>x.id===mid)?.trainerId;\n      try{\n        await addDoc2(\"logs\",{trainerId,memberId:mid,date:dateI.value,exercises:exs,note:noteTa.value});\n        showToast(\"운동일지 저장 완료!\");document.querySelector(\".ov\")?.remove();\n      }catch(e){showToast(\"오류가 발생했습니다\",false);saveBtn.textContent=\"저장하기\";}\n    },\"white\",\"lg\",{width:\"100%\"});\n    content.appendChild(saveBtn);\n    mkModal(\"운동일지 작성\",content,true);\n  };\n\n  rerender();return wrap;\n}\n\n\/\/ ── 식단 기록 (회원)\nfunction renderDietMember(){\n  const wrap=document.createElement(\"div\");\n  const ICON={아침:\"🌅\",점심:\"☀️\",저녁:\"🌙\",간식:\"🍎\"};\n\n  const hdr=mkSectionHeader(\"Nutrition\",\"식단 기록\",mkBtn(\"+ 기록하기\",()=>showAddModal(),\"white\",\"md\"));\n  wrap.appendChild(hdr);\n\n  const myDiets=[...STATE.diets].sort((a,b)=>b.date.localeCompare(a.date));\n\n  if(myDiets.length===0){const p=document.createElement(\"p\");Object.assign(p.style,{color:T.text4,fontSize:\"14px\",textAlign:\"center\",padding:\"60px 0\"});p.textContent=\"식단 기록이 없습니다\";wrap.appendChild(p);}\n  else myDiets.forEach(d=>{\n    const card=mkCard({marginBottom:\"12px\"});\n    const top=document.createElement(\"div\");Object.assign(top.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"flex-start\",marginBottom:\"18px\"});\n    top.innerHTML=`<p style=\"font-size:13px;color:${T.text3}\">${d.date}<\/p><div style=\"text-align:right\"><p style=\"font-family:'Playfair Display',serif;font-size:26px;color:${T.text}\">${d.totalKcal.toLocaleString()}<\/p><p style=\"font-size:10px;color:${T.text3};letter-spacing:0.07em\">KCAL<\/p><\/div>`;\n    card.appendChild(top);\n    d.meals.forEach(meal=>{\n      const mw=document.createElement(\"div\");mw.style.marginBottom=\"14px\";\n      const ml=document.createElement(\"p\");Object.assign(ml.style,{fontSize:\"11px\",color:T.text3,letterSpacing:\"0.07em\",marginBottom:\"8px\"});ml.textContent=`${ICON[meal.time]||\"🍽\"} ${meal.time.toUpperCase()}`;mw.appendChild(ml);\n      meal.items.forEach(it=>{\n        const row=document.createElement(\"div\");Object.assign(row.style,{display:\"flex\",justifyContent:\"space-between\",padding:\"7px 0\",borderBottom:`1px solid ${T.surface2}`});\n        row.innerHTML=`<span style=\"font-size:14px;color:#d0d0d0\">${it.food}<\/span><span style=\"font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}\">${it.kcal} kcal<\/span>`;mw.appendChild(row);\n      });\n      card.appendChild(mw);\n    });\n    card.appendChild(mkDivider(14));\n    const tags=document.createElement(\"div\");tags.style.cssText=\"display:flex;gap:10px;flex-wrap:wrap;\";\n    tags.appendChild(mkTag(`💧 ${d.water}L`));tags.appendChild(mkTag(`☕ 커피 ${d.coffee}잔`));card.appendChild(tags);\n    if(d.trainerRating>0){\n      const fb=document.createElement(\"div\");Object.assign(fb.style,{marginTop:\"14px\",background:T.surface2,borderRadius:\"12px\",padding:\"14px 16px\"});\n      const fbTop=document.createElement(\"div\");Object.assign(fbTop.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"center\",marginBottom:d.trainerComment?\"10px\":\"0\"});\n      const fbl=document.createElement(\"p\");Object.assign(fbl.style,{fontSize:\"11px\",color:T.text3,letterSpacing:\"0.07em\"});fbl.textContent=\"TRAINER FEEDBACK\";\n      fbTop.appendChild(fbl);fbTop.appendChild(mkStars(d.trainerRating,null,15));fb.appendChild(fbTop);\n      if(d.trainerComment){const cp=document.createElement(\"p\");Object.assign(cp.style,{fontSize:\"13px\",color:T.text2,lineHeight:\"1.7\"});cp.textContent=d.trainerComment;fb.appendChild(cp);}\n      card.appendChild(fb);\n    }\n    wrap.appendChild(card);\n  });\n\n  const showAddModal=()=>{\n    const content=document.createElement(\"div\");\n    const MEAL_TIMES=[\"아침\",\"점심\",\"저녁\",\"간식\"];\n    let meals=[{time:\"아침\",items:[{food:\"\",kcal:\"\"}]},{time:\"점심\",items:[{food:\"\",kcal:\"\"}]},{time:\"저녁\",items:[{food:\"\",kcal:\"\"}]}];\n\n    const grid=document.createElement(\"div\");Object.assign(grid.style,{display:\"grid\",gridTemplateColumns:\"1fr 1fr\",gap:\"10px\"});\n    const dateFld=mkFld(\"날짜\");dateFld.style.gridColumn=\"1\/-1\";const dateI=makeInp({type:\"date\",value:today()});dateFld.appendChild(dateI);\n    const wFld=mkFld(\"수분 (L)\");const wI=makeInp({type:\"number\",step:\"0.5\",placeholder:\"2.0\"});wFld.appendChild(wI);\n    const cFld=mkFld(\"커피 (잔)\");const cI=makeInp({type:\"number\",placeholder:\"1\"});cFld.appendChild(cI);\n    grid.appendChild(dateFld);grid.appendChild(wFld);grid.appendChild(cFld);content.appendChild(grid);\n    content.appendChild(mkDivider());\n\n    const mealArea=document.createElement(\"div\");\n    const aiRow=document.createElement(\"div\");Object.assign(aiRow.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"center\",marginBottom:\"8px\"});\n    aiRow.appendChild(mkLabel(\"끼니별 식단\"));\n    const aiBtn=document.createElement(\"button\");Object.assign(aiBtn.style,{background:\"#fff\",color:\"#000\",border:\"none\",borderRadius:\"9px\",padding:\"8px 16px\",cursor:\"pointer\",fontSize:\"12px\",fontWeight:\"700\",display:\"flex\",alignItems:\"center\",gap:\"6px\"});\n    aiBtn.innerHTML=\"✦ AI 칼로리 자동계산\";\n    const mealInputs={};\n\n    const renderMeals=()=>{\n      mealArea.innerHTML=\"\";\n      meals.forEach((meal,mi)=>{\n        const mw=document.createElement(\"div\");mw.style.marginBottom=\"20px\";\n        const ml=document.createElement(\"p\");Object.assign(ml.style,{fontSize:\"12px\",color:T.text2,marginBottom:\"10px\"});ml.textContent=`${ICON[meal.time]} ${meal.time}`;mw.appendChild(ml);\n        if(!mealInputs[meal.time])mealInputs[meal.time]=[];\n        meal.items.forEach((it,ii)=>{\n          const row=document.createElement(\"div\");Object.assign(row.style,{display:\"grid\",gridTemplateColumns:\"3fr 1fr\",gap:\"8px\",marginBottom:\"8px\"});\n          const fi=makeInp({type:\"text\",placeholder:\"음식명 (예: 닭가슴살)\"},{padding:\"10px 12px\"});\n          fi.value=it.food;\n          fi.addEventListener(\"input\",e=>{const k=findKcal(e.target.value);meals[mi].items[ii].food=e.target.value;if(k!==null){meals[mi].items[ii].kcal=k;ki.value=k;ki.style.color=T.green;}});\n          const ki=makeInp({type:\"number\",placeholder:\"kcal\"},{padding:\"10px\",color:it.kcal?T.green:T.text3});\n          ki.value=it.kcal||\"\";ki.addEventListener(\"input\",e=>meals[mi].items[ii].kcal=+e.target.value);\n          row.appendChild(fi);row.appendChild(ki);mw.appendChild(row);\n          if(!mealInputs[meal.time][ii])mealInputs[meal.time][ii]={fi,ki};\n          else{mealInputs[meal.time][ii].fi=fi;mealInputs[meal.time][ii].ki=ki;}\n        });\n        const addItemBtn=document.createElement(\"button\");Object.assign(addItemBtn.style,{background:\"none\",border:\"none\",color:T.text4,fontSize:\"12px\",cursor:\"pointer\",padding:\"0\"});addItemBtn.textContent=\"+ 음식 추가\";\n        addItemBtn.addEventListener(\"click\",()=>{meals[mi].items.push({food:\"\",kcal:\"\"});renderMeals();});\n        mw.appendChild(addItemBtn);mealArea.appendChild(mw);\n      });\n    };\n\n    aiBtn.addEventListener(\"click\",async()=>{\n      const foods=meals.flatMap(m=>m.items.map(it=>it.food)).filter(Boolean);\n      if(!foods.length){showToast(\"음식을 먼저 입력해주세요\",false);return;}\n      aiBtn.innerHTML=`<span class=\"spin\">⟳<\/span> 계산 중...`;\n      try{\n        const r=await fetch(\"https:\/\/api.anthropic.com\/v1\/messages\",{method:\"POST\",headers:{\"Content-Type\":\"application\/json\"},body:JSON.stringify({model:\"claude-sonnet-4-20250514\",max_tokens:600,messages:[{role:\"user\",content:`다음 음식들의 1인분 칼로리를 JSON으로만 반환. 키=음식명, 값=정수. 다른 텍스트 없이 JSON만: ${foods.join(\", \")}`}]})});\n        const data=await r.json();\n        const raw=data.content?.map(c=>c.text||\"\").join(\"\").replace(\/```json|```\/g,\"\").trim();\n        const parsed=JSON.parse(raw);\n        meals.forEach(meal=>{meal.items.forEach(it=>{if(!it.food)return;const k=Object.keys(parsed).find(k=>k.includes(it.food)||it.food.includes(k));if(k)it.kcal=parsed[k];});});\n        renderMeals();showToast(\"칼로리 계산 완료!\");\n      }catch{\n        meals.forEach(meal=>{meal.items.forEach(it=>{const k=findKcal(it.food);if(k!==null)it.kcal=k;});});\n        renderMeals();\n      }\n      aiBtn.innerHTML=\"✦ AI 칼로리 자동계산\";\n    });\n\n    aiRow.appendChild(aiBtn);content.appendChild(aiRow);\n    const hint=document.createElement(\"p\");Object.assign(hint.style,{fontSize:\"11px\",color:T.text4,marginBottom:\"16px\"});hint.textContent=\"음식명 입력 시 자동으로 kcal이 채워집니다.\";content.appendChild(hint);\n    content.appendChild(mealArea);renderMeals();\n\n    \/\/ 끼니 추가 버튼\n    const addMealWrap=document.createElement(\"div\");Object.assign(addMealWrap.style,{display:\"flex\",gap:\"8px\",marginBottom:\"16px\",flexWrap:\"wrap\"});\n    MEAL_TIMES.filter(t=>!meals.find(m=>m.time===t)).forEach(t=>{\n      const b=document.createElement(\"button\");Object.assign(b.style,{background:T.surface2,border:`1px solid ${T.border2}`,borderRadius:\"99px\",padding:\"5px 14px\",fontSize:\"12px\",color:T.text3,cursor:\"pointer\"});b.textContent=`+ ${t}`;\n      b.addEventListener(\"click\",()=>{meals.push({time:t,items:[{food:\"\",kcal:\"\"}]});renderMeals();addMealWrap.innerHTML=\"\";MEAL_TIMES.filter(t=>!meals.find(m=>m.time===t)).forEach(t2=>{\/*rebuild*\/});});\n      addMealWrap.appendChild(b);\n    });\n    content.appendChild(addMealWrap);\n\n    const saveBtn=mkBtn(\"저장하기\",async()=>{\n      const validMeals=meals.map(m=>({...m,items:m.items.filter(it=>it.food)})).filter(m=>m.items.length>0);\n      if(!validMeals.length){showToast(\"식단을 입력해주세요\",false);return;}\n      const tot=validMeals.reduce((a,m)=>a+m.items.reduce((b,it)=>b+(+it.kcal||0),0),0);\n      saveBtn.innerHTML=`<span class=\"spin\">⟳<\/span> 저장 중...`;\n      const m=STATE.members.find(x=>x.id===STATE.myMemberId);\n      try{\n        await addDoc2(\"diets\",{trainerId:m?.trainerId,memberId:STATE.myMemberId,date:dateI.value,meals:validMeals,water:+wI.value,coffee:+cI.value,totalKcal:tot,trainerRating:0,trainerComment:\"\"});\n        showToast(\"식단 저장 완료!\");document.querySelector(\".ov\")?.remove();\n      }catch(e){showToast(\"오류가 발생했습니다\",false);saveBtn.textContent=\"저장하기\";}\n    },\"white\",\"lg\",{width:\"100%\"});\n    content.appendChild(saveBtn);\n    mkModal(\"식단 기록\",content,true);\n  };\n\n  return wrap;\n}\n\n\/\/ ── 식단 검토 (트레이너)\nfunction renderDietReview(){\n  const wrap=document.createElement(\"div\");\n  const ICON={아침:\"🌅\",점심:\"☀️\",저녁:\"🌙\",간식:\"🍎\"};\n  let filter=\"all\";\n  let editingId=null;\n\n  const rerender=()=>{\n    wrap.innerHTML=\"\";\n    wrap.appendChild(mkSectionHeader(\"Diet Review\",\"식단 검토\"));\n\n    const fw=document.createElement(\"div\");Object.assign(fw.style,{display:\"flex\",gap:\"8px\",marginBottom:\"22px\",overflowX:\"auto\",paddingBottom:\"4px\"});\n    [{id:\"all\",name:\"전체\"},...STATE.members].forEach(m=>{\n      const b=document.createElement(\"button\");const active=filter===(m.id===\"all\"?\"all\":m.id);\n      Object.assign(b.style,{padding:\"7px 16px\",borderRadius:\"99px\",border:`1px solid ${active?\"#fff\":T.border2}`,background:active?\"#fff\":\"transparent\",color:active?\"#000\":T.text3,fontSize:\"13px\",fontWeight:\"600\",cursor:\"pointer\",whiteSpace:\"nowrap\"});\n      b.textContent=m.name;b.addEventListener(\"click\",()=>{filter=m.id===\"all\"?\"all\":m.id;rerender();});fw.appendChild(b);\n    });\n    wrap.appendChild(fw);\n\n    const shown=[...(filter===\"all\"?STATE.diets:STATE.diets.filter(d=>d.memberId===filter))].sort((a,b)=>b.date.localeCompare(a.date));\n\n    if(shown.length===0){const p=document.createElement(\"p\");Object.assign(p.style,{color:T.text4,fontSize:\"14px\",textAlign:\"center\",padding:\"60px 0\"});p.textContent=\"식단 기록이 없습니다\";wrap.appendChild(p);return;}\n\n    shown.forEach(d=>{\n      const m=STATE.members.find(x=>x.id===d.memberId);\n      const card=mkCard({marginBottom:\"12px\"});\n      const top=document.createElement(\"div\");Object.assign(top.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"flex-start\",marginBottom:\"18px\"});\n      top.innerHTML=`<div><p style=\"font-family:'Playfair Display',serif;font-size:19px;color:${T.text};margin-bottom:3px\">${m?.name||\"\"}<\/p><p style=\"font-size:12px;color:${T.text3}\">${d.date}<\/p><\/div><div style=\"text-align:right\"><p style=\"font-family:'Playfair Display',serif;font-size:24px;color:${T.text}\">${d.totalKcal.toLocaleString()}<\/p><p style=\"font-size:10px;color:${T.text3};letter-spacing:0.07em\">KCAL<\/p><\/div>`;\n      card.appendChild(top);\n\n      d.meals.forEach(meal=>{\n        const mw=document.createElement(\"div\");mw.style.marginBottom=\"13px\";\n        const ml=document.createElement(\"p\");Object.assign(ml.style,{fontSize:\"11px\",color:T.text3,letterSpacing:\"0.07em\",marginBottom:\"8px\"});ml.textContent=`${ICON[meal.time]||\"🍽\"} ${meal.time.toUpperCase()}`;mw.appendChild(ml);\n        meal.items.forEach(it=>{const row=document.createElement(\"div\");Object.assign(row.style,{display:\"flex\",justifyContent:\"space-between\",padding:\"7px 0\",borderBottom:`1px solid ${T.surface2}`});row.innerHTML=`<span style=\"font-size:14px;color:#d0d0d0\">${it.food}<\/span><span style=\"font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}\">${it.kcal} kcal<\/span>`;mw.appendChild(row);});\n        card.appendChild(mw);\n      });\n\n      card.appendChild(mkDivider(14));\n      const tags=document.createElement(\"div\");tags.style.cssText=\"display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;\";\n      tags.appendChild(mkTag(`💧 ${d.water}L`));tags.appendChild(mkTag(`☕ 커피 ${d.coffee}잔`));card.appendChild(tags);\n      card.appendChild(mkDivider(0));\n\n      \/\/ 평가 영역\n      const evalArea=document.createElement(\"div\");evalArea.style.paddingTop=\"16px\";\n      const isEditing=editingId===d.id;\n\n      if(!isEditing){\n        const evalRow=document.createElement(\"div\");Object.assign(evalRow.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"flex-start\"});\n        const left=document.createElement(\"div\");\n        if(d.trainerRating>0){left.appendChild(mkStars(d.trainerRating,null,18));if(d.trainerComment){const cp=document.createElement(\"p\");Object.assign(cp.style,{fontSize:\"13px\",color:T.text2,marginTop:\"8px\",lineHeight:\"1.7\",maxWidth:\"300px\"});cp.textContent=d.trainerComment;left.appendChild(cp);}}\n        else{const np=document.createElement(\"p\");Object.assign(np.style,{fontSize:\"12px\",color:T.text4});np.textContent=\"피드백 미작성\";left.appendChild(np);}\n        const editBtn=mkBtn(d.trainerRating>0?\"수정\":\"평가하기\",()=>{editingId=d.id;rerender();},\"ghost\",\"sm\");\n        evalRow.appendChild(left);evalRow.appendChild(editBtn);evalArea.appendChild(evalRow);\n      }else{\n        let starVal=d.trainerRating||0;\n        const starLabel=document.createElement(\"p\");Object.assign(starLabel.style,{fontSize:\"11px\",color:T.text3,letterSpacing:\"0.08em\",textTransform:\"uppercase\",marginBottom:\"14px\"});starLabel.textContent=\"식단 평가\";evalArea.appendChild(starLabel);\n        const starWrap=document.createElement(\"div\");starWrap.style.marginBottom=\"16px\";\n        const stars=mkStars(starVal,v=>{starVal=v;starWrap.innerHTML=\"\";starWrap.appendChild(mkStars(starVal,v2=>{starVal=v2;starWrap.innerHTML=\"\";starWrap.appendChild(mkStars(starVal,null,30));},30));},30);\n        starWrap.appendChild(stars);evalArea.appendChild(starWrap);\n        const commentTa=makeTa(\"피드백 입력 (예: 단백질 비율 좋음, 탄수화물 조금 늘려보세요)\",{marginBottom:\"12px\"});\n        commentTa.value=d.trainerComment||\"\";evalArea.appendChild(commentTa);\n        const btnRow=document.createElement(\"div\");btnRow.style.cssText=\"display:flex;gap:8px;\";\n        const saveBtn=mkBtn(\"저장\",async()=>{\n          saveBtn.innerHTML=`<span class=\"spin\">⟳<\/span>`;\n          try{await updateDoc2(\"diets\",d.id,{trainerRating:starVal,trainerComment:commentTa.value});editingId=null;showToast(\"피드백 저장 완료!\");}\n          catch{showToast(\"오류가 발생했습니다\",false);}\n        },\"white\",\"md\",{flex:\"1\"});\n        const cancelBtn=mkBtn(\"취소\",()=>{editingId=null;rerender();},\"ghost\",\"md\");\n        btnRow.appendChild(saveBtn);btnRow.appendChild(cancelBtn);evalArea.appendChild(btnRow);\n      }\n      card.appendChild(evalArea);wrap.appendChild(card);\n    });\n  };\n\n  rerender();return wrap;\n}\n\n\/\/ ── 체중 입력 (회원)\nfunction renderWeight(){\n  const wrap=document.createElement(\"div\");\n  wrap.appendChild(mkSectionHeader(\"Weight Tracking\",\"체중 기록\"));\n\n  const m=STATE.members.find(x=>x.id===STATE.myMemberId);\n  if(!m){const p=document.createElement(\"p\");p.style.color=T.text4;p.textContent=\"정보를 불러오는 중...\";wrap.appendChild(p);return wrap;}\n\n  const wLog=m.weightLog||[],w0=wLog[0]?.w,wN=wLog.at(-1)?.w;\n  const diff=wLog.length>=2?(wN-w0).toFixed(1):null;\n\n  const card=mkCard({marginBottom:\"14px\"});card.appendChild(mkLabel(\"나의 체중 변화\"));\n  const grid=document.createElement(\"div\");Object.assign(grid.style,{display:\"grid\",gridTemplateColumns:\"1fr 1fr 1fr\",gap:\"10px\",marginTop:\"14px\",marginBottom:\"20px\"});\n  [[\"시작\",`${w0}kg`],[\"현재\",`${wLog.at(-1)?.w}kg`],[\"변화\",diff!==null?`${+diff>0?\"+\":\"\"}${diff}kg`:\"—\"]].forEach(([k,v])=>{\n    const cell=document.createElement(\"div\");Object.assign(cell.style,{background:T.surface2,borderRadius:\"12px\",padding:\"16px 12px\",textAlign:\"center\"});\n    cell.innerHTML=`<p style=\"font-size:10px;color:${T.text4};margin-bottom:8px\">${k}<\/p><p style=\"font-family:'Playfair Display',serif;font-size:22px;color:${k===\"변화\"&&diff!==null?(+diff<0?T.green:+diff>0?T.red:T.text):T.text}\">${v}<\/p>`;\n    grid.appendChild(cell);\n  });\n  card.appendChild(grid);\n\n  const histLabel=document.createElement(\"p\");Object.assign(histLabel.style,{fontSize:\"11px\",color:T.text3,letterSpacing:\"0.08em\",textTransform:\"uppercase\",marginBottom:\"12px\"});histLabel.textContent=\"기록 내역\";card.appendChild(histLabel);\n  [...wLog].reverse().slice(0,8).forEach(entry=>{\n    const row=document.createElement(\"div\");Object.assign(row.style,{display:\"flex\",justifyContent:\"space-between\",alignItems:\"center\",padding:\"9px 0\",borderBottom:`1px solid ${T.border}`});\n    row.innerHTML=`<span style=\"font-size:13px;color:${T.text3}\">${entry.date}<\/span><span style=\"font-family:'Playfair Display',serif;font-size:18px;color:${T.text}\">${entry.w} kg<\/span>`;\n    card.appendChild(row);\n  });\n  wrap.appendChild(card);\n\n  \/\/ 입력 카드\n  const inputCard=mkCard();inputCard.appendChild(mkLabel(\"오늘 체중 입력\"));\n  const inputRow=document.createElement(\"div\");Object.assign(inputRow.style,{display:\"flex\",gap:\"10px\",marginTop:\"14px\"});\n  const wInput=makeInp({type:\"number\",step:\"0.1\",placeholder:\"59.5\"},{flex:\"1\",fontSize:\"22px\",textAlign:\"center\",letterSpacing:\"0.04em\"});\n  const saveBtn=mkBtn(\"저장\",async()=>{\n    if(!wInput.value){showToast(\"체중을 입력해주세요\",false);return;}\n    const val=+wInput.value;const td=today();\n    saveBtn.innerHTML=`<span class=\"spin\">⟳<\/span>`;\n    try{\n      const newLog=[...(m.weightLog||[]),{date:td,w:val}];\n      await updateDoc2(\"members\",STATE.myMemberId,{weightLog:newLog,weight:val});\n      wInput.value=\"\";showToast(\"체중 저장 완료! ✓\");\n    }catch(e){showToast(\"오류가 발생했습니다\",false);}\n    saveBtn.textContent=\"저장\";\n  },\"white\",\"md\");\n  inputRow.appendChild(wInput);inputRow.appendChild(saveBtn);inputCard.appendChild(inputRow);\n  const hint=document.createElement(\"p\");Object.assign(hint.style,{fontSize:\"11px\",color:T.text4,textAlign:\"center\",marginTop:\"14px\"});hint.textContent=\"입력하면 트레이너가 변화를 실시간으로 확인합니다\";inputCard.appendChild(hint);\n  wrap.appendChild(inputCard);\n  return wrap;\n}\n\n\/\/ ── 일정\nfunction renderSchedule(){\n  const wrap=document.createElement(\"div\");\n  const isT=STATE.role===\"trainer\";\n\n  wrap.appendChild(mkSectionHeader(\"Schedule\",\"PT 일정\",!isT?null:mkBtn(\"+ 일정 추가\",()=>showAddModal(),\"white\",\"md\")));\n\n  const list=isT?STATE.schedules:STATE.schedules.filter(s=>s.memberId===STATE.myMemberId);\n  const upcoming=[...list.filter(s=>s.status===\"예정\")].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));\n  const done=[...list.filter(s=>s.status===\"완료\")].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));\n\n  const mkRow=(s,canComplete)=>{\n    const m=STATE.members.find(x=>x.id===s.memberId);\n    const row=document.createElement(\"div\");Object.assign(row.style,{display:\"flex\",alignItems:\"center\",gap:\"14px\",padding:\"13px 0\",borderBottom:`1px solid ${T.border}`});\n    const time=document.createElement(\"div\");Object.assign(time.style,{background:T.surface2,borderRadius:\"10px\",padding:\"9px 14px\",minWidth:\"58px\",textAlign:\"center\"});\n    time.innerHTML=`<p style=\"font-family:'Playfair Display',serif;font-size:17px;color:${T.text}\">${s.time}<\/p><p style=\"font-size:10px;color:${T.text4};margin-top:2px\">${s.date.slice(5)}<\/p>`;\n    const info=document.createElement(\"div\");info.style.flex=\"1\";\n    info.innerHTML=`<p style=\"font-size:15px;font-weight:600;color:${T.text}\">${m?.name||\"\"}<\/p><p style=\"font-size:12px;color:${T.text3};margin-top:2px\">${s.duration}분<\/p>`;\n    row.appendChild(time);row.appendChild(info);\n    if(canComplete){const btn=mkBtn(\"완료\",async()=>{await updateDoc2(\"schedules\",s.id,{status:\"완료\"});showToast(\"완료 처리되었습니다\");},\"outline\",\"sm\");row.appendChild(btn);}\n    else{const badge=document.createElement(\"span\");Object.assign(badge.style,{fontSize:\"11px\",color:T.green,background:\"#0b1f14\",border:\"1px solid #1a3528\",borderRadius:\"99px\",padding:\"4px 11px\"});badge.textContent=\"완료\";row.appendChild(badge);}\n    return row;\n  };\n\n  const upCard=mkCard({marginBottom:\"14px\"});\n  const upHd=document.createElement(\"div\");Object.assign(upHd.style,{display:\"flex\",justifyContent:\"space-between\",marginBottom:\"16px\"});\n  upHd.appendChild(mkLabel(\"예정된 일정\"));upHd.appendChild(mkTag(`${upcoming.length}건`));upCard.appendChild(upHd);\n  if(upcoming.length===0){const p=document.createElement(\"p\");Object.assign(p.style,{color:T.text4,fontSize:\"14px\",padding:\"16px 0\"});p.textContent=\"예정된 일정이 없습니다\";upCard.appendChild(p);}\n  else upcoming.forEach(s=>upCard.appendChild(mkRow(s,isT)));\n  wrap.appendChild(upCard);\n\n  const doneCard=mkCard();\n  const doneHd=document.createElement(\"div\");Object.assign(doneHd.style,{display:\"flex\",justifyContent:\"space-between\",marginBottom:\"16px\"});\n  doneHd.appendChild(mkLabel(\"완료된 세션\"));doneHd.appendChild(mkTag(`${done.length}건`));doneCard.appendChild(doneHd);\n  if(done.length===0){const p=document.createElement(\"p\");Object.assign(p.style,{color:T.text4,fontSize:\"14px\",padding:\"16px 0\"});p.textContent=\"완료된 세션이 없습니다\";doneCard.appendChild(p);}\n  else done.forEach(s=>doneCard.appendChild(mkRow(s,false)));\n  wrap.appendChild(doneCard);\n\n  const showAddModal=()=>{\n    const content=document.createElement(\"div\");\n    const mFld=mkFld(\"회원\");const mSel=makeSel([{val:\"\",label:\"회원 선택\"},...STATE.members.map(m=>({val:m.id,label:m.name}))],  \"\");mFld.appendChild(mSel);content.appendChild(mFld);\n    const grid=document.createElement(\"div\");Object.assign(grid.style,{display:\"grid\",gridTemplateColumns:\"1fr 1fr\",gap:\"10px\"});\n    const dateFld=mkFld(\"날짜\");const dateI=makeInp({type:\"date\",value:today()});dateFld.appendChild(dateI);\n    const timeFld=mkFld(\"시간\");const timeI=makeInp({type:\"time\",value:\"10:00\"});timeFld.appendChild(timeI);\n    const durFld=mkFld(\"세션 시간 (분)\");const durI=makeInp({type:\"number\",value:\"60\"});durFld.appendChild(durI);\n    grid.appendChild(dateFld);grid.appendChild(timeFld);grid.appendChild(durFld);content.appendChild(grid);\n    const saveBtn=mkBtn(\"일정 추가\",async()=>{\n      if(!mSel.value){showToast(\"회원을 선택해주세요\",false);return;}\n      saveBtn.innerHTML=`<span class=\"spin\">⟳<\/span> 저장 중...`;\n      try{\n        await addDoc2(\"schedules\",{trainerId:uid(),memberId:mSel.value,date:dateI.value,time:timeI.value,duration:+durI.value,status:\"예정\"});\n        showToast(\"일정 추가 완료!\");document.querySelector(\".ov\")?.remove();\n      }catch(e){showToast(\"오류가 발생했습니다\",false);saveBtn.textContent=\"일정 추가\";}\n    },\"white\",\"lg\",{width:\"100%\"});\n    content.appendChild(saveBtn);\n    mkModal(\"PT 일정 추가\",content);\n  };\n\n  return wrap;\n}\n\n\/\/ ════════════════════════════════════════\n\/\/ 앱 초기화\n\/\/ ════════════════════════════════════════\nwindow.addEventListener(\"fb-ready\",()=>{\n  FB=window._fb;\n  FB.onAuthStateChanged(FB.auth,async user=>{\n    if(user){\n      STATE.user=user;STATE.role=\"trainer\";STATE.tab=\"dash\";STATE.loading=true;render();\n      await loadAllData();STATE.loading=false;render();\n    }else{\n      if(STATE.role!==\"member\"){STATE.user=null;STATE.role=null;STATE.loading=false;render();}\n    }\n  });\n});\n\n\/\/ 초기 로딩\nrenderLoading();\n<\/script>\n<\/body>\n<\/html>\n",
-  "stderr" : ""
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>PT Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+
+<!-- Firebase -->
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyD9b6lVHPflKlUWz4nmNWK0ykBG8nk7BG0",
+    authDomain: "pt-manager-44aff.firebaseapp.com",
+    projectId: "pt-manager-44aff",
+    storageBucket: "pt-manager-44aff.firebasestorage.app",
+    messagingSenderId: "400331343139",
+    appId: "1:400331343139:web:ce3c2c7f2a544752f83896",
+    measurementId: "G-7EL65FMBMB"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  window._fb = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp };
+  window.dispatchEvent(new Event("fb-ready"));
+</script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#060606;color:#fff;font-family:'Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;height:100%}
+input,select,textarea,button{font-family:'Noto Sans KR',sans-serif}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:#222;border-radius:9px}
+input::placeholder,textarea::placeholder{color:#2a2a2a}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:.8}}
+.a0{animation:fadeUp .35s ease both}
+.a1{animation:fadeUp .35s .07s ease both;opacity:0}
+.a2{animation:fadeUp .35s .14s ease both;opacity:0}
+.ov{animation:fadeIn .2s ease both}
+.spin{animation:spin .8s linear infinite;display:inline-block}
+</style>
+
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ── 디자인 토큰
+const T={bg:"#060606",surface:"#0e0e0e",surface2:"#141414",surface3:"#1a1a1a",border:"#1e1e1e",border2:"#272727",text:"#ffffff",text2:"#888",text3:"#444",text4:"#2a2a2a",green:"#5ee89a",red:"#f87171"};
+
+// ── 칼로리 DB
+const KCAL={닭가슴살:165,현미밥:218,백미밥:300,고구마:131,달걀:78,삶은달걀:78,단백질쉐이크:120,오트밀:370,샐러드:80,연어:208,참치:132,두부:76,브로콜리:34,아보카도:160,바나나:89,사과:52,요거트:100,그릭요거트:59,아몬드:579,견과류:600,우유:61,두유:54,닭볶음탕:180,삼겹살:518,된장찌개:90,김치찌개:75,비빔밥:490,불고기:215,갈비탕:210,삼계탕:250,짜장면:520,짬뽕:450,볶음밥:400,김밥:320,샌드위치:310,식빵:265,떡:350,떡볶이:300,라면:480,우동:400,아메리카노:10,카페라떼:130,카푸치노:110,녹차:2,프로틴바:200,소고기:271,새우:99,고등어:202,계란프라이:90,토스트:265,시리얼:380,치킨:239,피자:266,햄버거:354};
+function findKcal(n){if(!n)return null;const s=n.trim().replace(/\s+/g,"").toLowerCase();for(const[k,v]of Object.entries(KCAL))if(s.includes(k)||k.includes(s))return v;return null;}
+
+// ── 앱 상태
+let STATE={user:null,role:null,myMemberId:null,tab:"dash",members:[],logs:[],diets:[],schedules:[],unsubs:[],loading:true};
+let FB=null;
+
+// ── 유틸
+const today=()=>new Date().toISOString().slice(0,10);
+const uid=()=>FB?.auth?.currentUser?.uid;
+const el=id=>document.getElementById(id);
+const h=(tag,props={},children=[])=>{const e=document.createElement(tag);Object.entries(props).forEach(([k,v])=>{if(k==="style"&&typeof v==="object")Object.assign(e.style,v);else if(k.startsWith("on"))e.addEventListener(k.slice(2).toLowerCase(),v);else e.setAttribute(k,v);});(Array.isArray(children)?children:[children]).forEach(c=>{if(c==null)return;e.appendChild(typeof c==="string"?document.createTextNode(c):c);});return e;};
+
+// ── CSS 공용
+const INP={width:"100%",padding:"12px 14px",background:T.surface2,border:`1px solid ${T.border2}`,borderRadius:"10px",color:T.text,fontSize:"14px",outline:"none"};
+const makeInp=(attrs={},sx={})=>{const i=document.createElement("input");Object.assign(i.style,INP,sx);Object.entries(attrs).forEach(([k,v])=>i.setAttribute(k,v));return i;};
+const makeSel=(options,val,sx={})=>{const s=document.createElement("select");Object.assign(s.style,{...INP,...sx});options.forEach(o=>{const op=document.createElement("option");op.value=o.val||o;op.textContent=o.label||o;if((o.val||o)===val)op.selected=true;s.appendChild(op);});return s;};
+const makeTa=(ph,sx={})=>{const t=document.createElement("textarea");Object.assign(t.style,{...INP,minHeight:"72px",resize:"vertical",...sx});t.placeholder=ph||"";return t;};
+
+function mkBtn(text,onClick,v="white",sz="md",sx={}){
+  const sizes={sm:{padding:"7px 14px",fontSize:"12px"},md:{padding:"11px 22px",fontSize:"14px"},lg:{padding:"15px 26px",fontSize:"15px"}};
+  const vars={white:{background:"#fff",color:"#000"},ghost:{background:T.surface2,color:T.text2,border:`1px solid ${T.border2}`},outline:{background:"transparent",color:"#fff",border:`1px solid ${T.border2}`},danger:{background:"transparent",color:T.red,border:`1px solid #3a1515`}};
+  const b=document.createElement("button");
+  Object.assign(b.style,{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:"6px",border:"none",cursor:"pointer",fontWeight:"600",letterSpacing:"0.02em",transition:"all .15s",borderRadius:"10px",...vars[v],...sizes[sz],...sx});
+  b.addEventListener("click",onClick);
+  b.innerHTML=text;
+  return b;
 }
+
+function mkCard(sx={}){const d=document.createElement("div");Object.assign(d.style,{background:T.surface,border:`1px solid ${T.border}`,borderRadius:"16px",padding:"22px",...sx});return d;}
+
+function mkLabel(text){const p=document.createElement("p");Object.assign(p.style,{fontSize:"11px",fontWeight:"600",color:T.text3,letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:"7px"});p.textContent=text;return p;}
+
+function mkTag(text){const s=document.createElement("span");Object.assign(s.style,{fontSize:"11px",color:T.text3,background:T.surface2,border:`1px solid ${T.border2}`,borderRadius:"99px",padding:"3px 10px",fontWeight:"500",whiteSpace:"nowrap"});s.textContent=text;return s;}
+
+function mkBar(val,max,color="#fff"){
+  const pct=Math.min(Math.round(val/max*100),100);
+  const wrap=document.createElement("div");
+  Object.assign(wrap.style,{background:T.surface3,borderRadius:"99px",height:"5px",overflow:"hidden"});
+  const fill=document.createElement("div");
+  Object.assign(fill.style,{width:`${pct}%`,background:color,height:"100%",borderRadius:"99px",transition:"width .7s ease"});
+  wrap.appendChild(fill);return wrap;
+}
+
+function mkDivider(my=18){const d=document.createElement("div");Object.assign(d.style,{borderTop:`1px solid ${T.border}`,margin:`${my}px 0`});return d;}
+
+function mkStars(val,onChange,size=22){
+  const wrap=document.createElement("div");
+  wrap.style.cssText="display:flex;gap:4px;";
+  [1,2,3,4,5].forEach(n=>{
+    const s=document.createElement("span");
+    s.textContent="★";
+    Object.assign(s.style,{fontSize:`${size}px`,cursor:onChange?"pointer":"default",opacity:n<=val?"1":"0.15",transition:"opacity .15s"});
+    if(onChange)s.addEventListener("click",()=>onChange(n));
+    wrap.appendChild(s);
+  });
+  return wrap;
+}
+
+function mkModal(title,content,wide=false){
+  const overlay=document.createElement("div");
+  overlay.className="ov";
+  Object.assign(overlay.style,{position:"fixed",inset:"0",background:"rgba(0,0,0,.88)",zIndex:"999",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"});
+  overlay.addEventListener("click",e=>{if(e.target===overlay)overlay.remove();});
+
+  const box=document.createElement("div");
+  box.className="a0";
+  Object.assign(box.style,{background:T.surface,border:`1px solid ${T.border2}`,borderRadius:"20px",padding:"28px",width:"100%",maxWidth:wide?"560px":"460px",maxHeight:"90vh",overflowY:"auto"});
+
+  const hd=document.createElement("div");
+  Object.assign(hd.style,{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"24px"});
+  const ttl=document.createElement("h3");
+  Object.assign(ttl.style,{fontFamily:"'Playfair Display',serif",fontSize:"21px",fontWeight:"600",color:T.text});
+  ttl.textContent=title;
+  const closeBtn=document.createElement("button");
+  Object.assign(closeBtn.style,{background:T.surface2,border:"none",borderRadius:"8px",width:"34px",height:"34px",cursor:"pointer",color:T.text3,fontSize:"20px",display:"flex",alignItems:"center",justifyContent:"center"});
+  closeBtn.textContent="×";
+  closeBtn.addEventListener("click",()=>overlay.remove());
+  hd.appendChild(ttl);hd.appendChild(closeBtn);
+  box.appendChild(hd);
+  box.appendChild(content);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  return {overlay,box};
+}
+
+function mkFld(label){const w=document.createElement("div");w.style.marginBottom="14px";if(label){const l=document.createElement("label");Object.assign(l.style,{display:"block",fontSize:"11px",fontWeight:"600",color:T.text3,letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:"7px"});l.textContent=label;w.appendChild(l);}return w;}
+
+function mkSectionHeader(eyebrow,title,actionEl=null){
+  const wrap=document.createElement("div");
+  Object.assign(wrap.style,{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:"28px"});
+  const left=document.createElement("div");
+  const eye=document.createElement("p");
+  Object.assign(eye.style,{fontSize:"11px",color:T.text3,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:"6px"});
+  eye.textContent=eyebrow;
+  const ttl=document.createElement("h2");
+  Object.assign(ttl.style,{fontFamily:"'Playfair Display',serif",fontSize:"30px",color:T.text});
+  ttl.textContent=title;
+  left.appendChild(eye);left.appendChild(ttl);wrap.appendChild(left);
+  if(actionEl)wrap.appendChild(actionEl);
+  return wrap;
+}
+
+function showToast(msg,ok=true){
+  const t=document.createElement("div");
+  Object.assign(t.style,{position:"fixed",bottom:"100px",left:"50%",transform:"translateX(-50%)",background:ok?"#1a3a2a":"#3a1a1a",color:ok?T.green:T.red,border:`1px solid ${ok?"#2a5a3a":"#5a2a2a"}`,borderRadius:"99px",padding:"10px 20px",fontSize:"13px",fontWeight:"600",zIndex:"9999",whiteSpace:"nowrap"});
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),2500);
+}
+
+function mkLoading(){
+  const d=document.createElement("div");
+  Object.assign(d.style,{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"60px 0",gap:"14px"});
+  const sp=document.createElement("div");
+  Object.assign(sp.style,{width:"28px",height:"28px",border:`2px solid ${T.border2}`,borderTop:`2px solid #fff`,borderRadius:"50%"});
+  sp.className="spin";
+  const p=document.createElement("p");
+  Object.assign(p.style,{color:T.text3,fontSize:"13px"});
+  p.textContent="불러오는 중...";
+  d.appendChild(sp);d.appendChild(p);return d;
+}
+
+// ════════════════════════════════════════
+// FIREBASE 데이터 CRUD
+// ════════════════════════════════════════
+async function loadAllData(){
+  if(!FB||!uid()) return;
+  const {db,collection,query,where,onSnapshot,doc}=FB;
+  const trainerId=uid();
+
+  // 기존 구독 해제
+  STATE.unsubs.forEach(u=>u());STATE.unsubs=[];
+
+  // members
+  const mq=query(collection(db,"members"),where("trainerId","==",trainerId));
+  const u1=onSnapshot(mq,snap=>{STATE.members=snap.docs.map(d=>({id:d.id,...d.data()}));render();});
+
+  // logs
+  const lq=query(collection(db,"logs"),where("trainerId","==",trainerId));
+  const u2=onSnapshot(lq,snap=>{STATE.logs=snap.docs.map(d=>({id:d.id,...d.data()}));render();});
+
+  // diets
+  const dq=query(collection(db,"diets"),where("trainerId","==",trainerId));
+  const u3=onSnapshot(dq,snap=>{STATE.diets=snap.docs.map(d=>({id:d.id,...d.data()}));render();});
+
+  // schedules
+  const sq=query(collection(db,"schedules"),where("trainerId","==",trainerId));
+  const u4=onSnapshot(sq,snap=>{STATE.schedules=snap.docs.map(d=>({id:d.id,...d.data()}));render();});
+
+  STATE.unsubs=[u1,u2,u3,u4];
+}
+
+async function loadMemberData(memberId){
+  if(!FB) return;
+  const {db,collection,query,where,onSnapshot}=FB;
+
+  STATE.unsubs.forEach(u=>u());STATE.unsubs=[];
+
+  // 해당 회원 데이터만
+  const lq=query(collection(db,"logs"),where("memberId","==",memberId));
+  const u1=onSnapshot(lq,snap=>{STATE.logs=snap.docs.map(d=>({id:d.id,...d.data()}));render();});
+
+  const dq=query(collection(db,"diets"),where("memberId","==",memberId));
+  const u2=onSnapshot(dq,snap=>{STATE.diets=snap.docs.map(d=>({id:d.id,...d.data()}));render();});
+
+  const sq=query(collection(db,"schedules"),where("memberId","==",memberId));
+  const u3=onSnapshot(sq,snap=>{STATE.schedules=snap.docs.map(d=>({id:d.id,...d.data()}));render();});
+
+  // 내 정보
+  const {doc,getDoc}=FB;
+  const me=await getDoc(doc(db,"members",memberId));
+  if(me.exists()) STATE.members=[{id:me.id,...me.data()}];
+
+  STATE.unsubs=[u1,u2,u3];
+}
+
+async function addDoc2(col,data){
+  const {db,collection,addDoc,serverTimestamp}=FB;
+  return addDoc(collection(db,col),{...data,createdAt:serverTimestamp()});
+}
+
+async function updateDoc2(col,id,data){
+  const {db,doc,updateDoc}=FB;
+  return updateDoc(doc(db,col,id),data);
+}
+
+async function setDoc2(col,id,data){
+  const {db,doc,setDoc}=FB;
+  return setDoc(doc(db,col,id),data,{merge:true});
+}
+
+// ════════════════════════════════════════
+// LOGIN / SIGNUP SCREEN
+// ════════════════════════════════════════
+function renderAuth(){
+  const root=el("app");root.innerHTML="";
+  const wrap=document.createElement("div");
+  Object.assign(wrap.style,{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:"24px"});
+
+  const box=document.createElement("div");
+  box.className="a0";
+  Object.assign(box.style,{width:"100%",maxWidth:"400px"});
+
+  // 로고
+  const logo=document.createElement("div");
+  Object.assign(logo.style,{textAlign:"center",marginBottom:"48px"});
+  logo.innerHTML=`
+    <div style="width:60px;height:60px;background:#fff;border-radius:16px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:26px">◼</div>
+    <p style="font-size:11px;color:${T.text3};letter-spacing:0.18em;text-transform:uppercase;margin-bottom:8px">Personal Training</p>
+    <h1 style="font-family:'Playfair Display',serif;font-size:38px;font-weight:700;color:#fff;line-height:1.1">PT Manager</h1>
+    <p style="font-size:14px;color:${T.text3};margin-top:10px;font-weight:300">스마트 트레이닝 관리 시스템</p>
+  `;
+
+  // 탭
+  let authMode="login"; // login | signup | member
+  const tabWrap=document.createElement("div");
+  Object.assign(tabWrap.style,{display:"flex",gap:"8px",marginBottom:"24px"});
+
+  const mkTab=(label,mode)=>{
+    const b=document.createElement("button");
+    Object.assign(b.style,{flex:"1",padding:"10px",borderRadius:"10px",border:"none",cursor:"pointer",fontSize:"13px",fontWeight:"600",transition:"all .15s"});
+    b.textContent=label;
+    b.dataset.mode=mode;
+    return b;
+  };
+
+  const tabs=[mkTab("트레이너 로그인","login"),mkTab("트레이너 가입","signup"),mkTab("회원 입장","member")];
+  tabs.forEach(t=>{tabWrap.appendChild(t);t.addEventListener("click",()=>{authMode=t.dataset.mode;updateTabs();updateForm();});});
+
+  const updateTabs=()=>{
+    tabs.forEach(t=>{
+      const active=t.dataset.mode===authMode;
+      Object.assign(t.style,{background:active?"#fff":T.surface2,color:active?"#000":T.text3,border:active?"none":`1px solid ${T.border2}`});
+    });
+  };
+  updateTabs();
+
+  // 폼 영역
+  const formArea=document.createElement("div");
+
+  const updateForm=()=>{
+    formArea.innerHTML="";
+    if(authMode==="login") formArea.appendChild(makeLoginForm());
+    else if(authMode==="signup") formArea.appendChild(makeSignupForm());
+    else formArea.appendChild(makeMemberForm());
+  };
+
+  // 트레이너 로그인
+  const makeLoginForm=()=>{
+    const wrap=document.createElement("div");
+    const emailF=mkFld("이메일");const emailI=makeInp({type:"email",placeholder:"trainer@email.com"});emailF.appendChild(emailI);
+    const pwF=mkFld("비밀번호");const pwI=makeInp({type:"password",placeholder:"••••••••"});pwF.appendChild(pwI);
+    const errP=document.createElement("p");Object.assign(errP.style,{color:T.red,fontSize:"13px",marginBottom:"12px",textAlign:"center",minHeight:"18px"});
+    const loginBtn=mkBtn("로그인","",  "white","lg",{width:"100%"});
+    loginBtn.addEventListener("click",async()=>{
+      errP.textContent="";
+      loginBtn.innerHTML=`<span class="spin">⟳</span> 로그인 중...`;
+      try{
+        await FB.signInWithEmailAndPassword(FB.auth,emailI.value,pwI.value);
+      }catch(e){
+        errP.textContent="이메일 또는 비밀번호가 올바르지 않습니다.";
+        loginBtn.textContent="로그인";
+      }
+    });
+    wrap.appendChild(emailF);wrap.appendChild(pwF);wrap.appendChild(errP);wrap.appendChild(loginBtn);
+    return wrap;
+  };
+
+  // 트레이너 회원가입
+  const makeSignupForm=()=>{
+    const wrap=document.createElement("div");
+    const nameF=mkFld("트레이너 이름");const nameI=makeInp({type:"text",placeholder:"홍길동 트레이너"});nameF.appendChild(nameI);
+    const emailF=mkFld("이메일");const emailI=makeInp({type:"email",placeholder:"trainer@email.com"});emailF.appendChild(emailI);
+    const pwF=mkFld("비밀번호 (6자리 이상)");const pwI=makeInp({type:"password",placeholder:"••••••••"});pwF.appendChild(pwI);
+    const errP=document.createElement("p");Object.assign(errP.style,{color:T.red,fontSize:"13px",marginBottom:"12px",textAlign:"center",minHeight:"18px"});
+    const signupBtn=mkBtn("계정 만들기","","white","lg",{width:"100%"});
+    signupBtn.addEventListener("click",async()=>{
+      errP.textContent="";
+      if(!nameI.value){errP.textContent="이름을 입력해주세요.";return;}
+      if(pwI.value.length<6){errP.textContent="비밀번호는 6자리 이상이어야 합니다.";return;}
+      signupBtn.innerHTML=`<span class="spin">⟳</span> 생성 중...`;
+      try{
+        const cred=await FB.createUserWithEmailAndPassword(FB.auth,emailI.value,pwI.value);
+        await FB.updateProfile(cred.user,{displayName:nameI.value});
+        // 트레이너 프로필 저장
+        await setDoc2("trainers",cred.user.uid,{name:nameI.value,email:emailI.value,createdAt:new Date().toISOString()});
+        showToast("가입 완료! 환영합니다 💪");
+      }catch(e){
+        const msgs={"auth/email-already-in-use":"이미 사용중인 이메일입니다.","auth/invalid-email":"올바른 이메일 형식이 아닙니다."};
+        errP.textContent=msgs[e.code]||"오류가 발생했습니다. 다시 시도해주세요.";
+        signupBtn.textContent="계정 만들기";
+      }
+    });
+    wrap.appendChild(nameF);wrap.appendChild(emailF);wrap.appendChild(pwF);wrap.appendChild(errP);wrap.appendChild(signupBtn);
+    return wrap;
+  };
+
+  // 회원 입장
+  const makeMemberForm=()=>{
+    const wrap=document.createElement("div");
+
+    // 트레이너 이메일로 회원 찾기
+    const tEmailF=mkFld("트레이너 이메일");
+    const tEmailI=makeInp({type:"email",placeholder:"트레이너 이메일 입력"});
+    tEmailF.appendChild(tEmailI);
+
+    const searchBtn=mkBtn("회원 목록 불러오기","","outline","md",{width:"100%",marginBottom:"14px"});
+    const memberSel=document.createElement("div");
+    const errP=document.createElement("p");Object.assign(errP.style,{color:T.red,fontSize:"13px",marginBottom:"12px",textAlign:"center",minHeight:"18px"});
+
+    searchBtn.addEventListener("click",async()=>{
+      errP.textContent="";memberSel.innerHTML="";
+      searchBtn.innerHTML=`<span class="spin">⟳</span> 검색 중...`;
+      try{
+        const {db,collection,query,where,getDocs}=FB;
+        // 트레이너 찾기
+        const tSnap=await getDocs(query(collection(db,"trainers"),where("email","==",tEmailI.value.trim())));
+        if(tSnap.empty){errP.textContent="해당 이메일의 트레이너를 찾을 수 없습니다.";searchBtn.textContent="회원 목록 불러오기";return;}
+        const trainerId=tSnap.docs[0].id;
+
+        // 회원 목록
+        const mSnap=await getDocs(query(collection(db,"members"),where("trainerId","==",trainerId)));
+        if(mSnap.empty){errP.textContent="등록된 회원이 없습니다.";searchBtn.textContent="회원 목록 불러오기";return;}
+
+        const fld=mkFld("회원 선택");
+        const opts=[{val:"",label:"이름을 선택하세요"},...mSnap.docs.map(d=>({val:d.id,label:d.data().name}))];
+        const sel=makeSel(opts,"");
+        fld.appendChild(sel);memberSel.appendChild(fld);
+
+        const enterBtn=mkBtn("입장하기","","white","lg",{width:"100%"});
+        enterBtn.addEventListener("click",()=>{
+          if(!sel.value){errP.textContent="회원을 선택해주세요.";return;}
+          STATE.role="member";STATE.myMemberId=sel.value;STATE.tab="workout";
+          loadMemberData(sel.value).then(()=>{STATE.loading=false;render();});
+        });
+        memberSel.appendChild(enterBtn);
+        searchBtn.textContent="회원 목록 불러오기";
+      }catch(e){
+        errP.textContent="오류가 발생했습니다.";
+        searchBtn.textContent="회원 목록 불러오기";
+      }
+    });
+
+    wrap.appendChild(tEmailF);wrap.appendChild(searchBtn);wrap.appendChild(errP);wrap.appendChild(memberSel);
+    return wrap;
+  };
+
+  updateForm();
+  box.appendChild(logo);box.appendChild(tabWrap);box.appendChild(formArea);
+  wrap.appendChild(box);root.appendChild(wrap);
+}
+
+// ════════════════════════════════════════
+// 메인 앱 렌더
+// ════════════════════════════════════════
+function render(){
+  if(STATE.loading){renderLoading();return;}
+  if(!STATE.role){renderAuth();return;}
+
+  const root=el("app");root.innerHTML="";
+  const isT=STATE.role==="trainer";
+
+  // Header
+  const hdr=document.createElement("div");
+  Object.assign(hdr.style,{background:T.bg,borderBottom:`1px solid ${T.border}`,padding:"13px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:"0",zIndex:"200"});
+
+  const trainerName=FB?.auth?.currentUser?.displayName||"트레이너";
+  const myMember=STATE.members.find(x=>x.id===STATE.myMemberId);
+
+  hdr.innerHTML=`
+    <div style="display:flex;align-items:center;gap:11px">
+      <div style="width:32px;height:32px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px">◼</div>
+      <div>
+        <p style="font-family:'Playfair Display',serif;font-size:15px;color:${T.text};line-height:1.1">PT Manager</p>
+        <p style="font-size:10px;color:${T.text3};letter-spacing:0.07em;margin-top:1px">${isT?trainerName+" · TRAINER":(myMember?.name||"")+" · MEMBER"}</p>
+      </div>
+    </div>
+  `;
+  const logoutBtn=mkBtn("로그아웃",async()=>{
+    STATE.unsubs.forEach(u=>u());STATE.unsubs=[];
+    if(isT){await FB.signOut(FB.auth);}
+    else{STATE.role=null;STATE.myMemberId=null;STATE.members=[];STATE.logs=[];STATE.diets=[];STATE.schedules=[];render();}
+  },"ghost","sm");
+  hdr.appendChild(logoutBtn);
+
+  // Content
+  const content=document.createElement("div");
+  Object.assign(content.style,{padding:"28px 18px 110px",maxWidth:"600px",margin:"0 auto"});
+  content.className="a0";
+
+  const TRAINER_TABS=[{id:"dash",label:"홈"},{id:"members",label:"회원"},{id:"workout",label:"운동"},{id:"diet_review",label:"식단"},{id:"schedule",label:"일정"}];
+  const MEMBER_TABS=[{id:"workout",label:"운동일지"},{id:"diet",label:"식단"},{id:"weight",label:"체중"},{id:"schedule",label:"일정"}];
+  const tabs=isT?TRAINER_TABS:MEMBER_TABS;
+
+  // 탭 콘텐츠
+  if(STATE.tab==="dash"&&isT) content.appendChild(renderDashboard());
+  else if(STATE.tab==="members"&&isT) content.appendChild(renderMembers());
+  else if(STATE.tab==="workout") content.appendChild(renderWorkout());
+  else if(STATE.tab==="diet_review"&&isT) content.appendChild(renderDietReview());
+  else if(STATE.tab==="diet"&&!isT) content.appendChild(renderDietMember());
+  else if(STATE.tab==="weight"&&!isT) content.appendChild(renderWeight());
+  else if(STATE.tab==="schedule") content.appendChild(renderSchedule());
+
+  // Tab Bar
+  const tabBar=document.createElement("div");
+  Object.assign(tabBar.style,{position:"fixed",bottom:"0",left:"0",right:"0",background:T.bg,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"space-around",padding:"10px 0",zIndex:"200"});
+  tabs.forEach(t=>{
+    const btn=document.createElement("button");
+    Object.assign(btn.style,{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"5px",padding:"4px 16px",position:"relative"});
+    const active=STATE.tab===t.id;
+    if(active){const bar=document.createElement("div");Object.assign(bar.style,{position:"absolute",top:"-1px",left:"50%",transform:"translateX(-50%)",width:"20px",height:"2px",background:"#fff",borderRadius:"99px"});btn.appendChild(bar);}
+    const lbl=document.createElement("span");
+    Object.assign(lbl.style,{fontSize:"12px",fontWeight:active?"700":"400",color:active?T.text:T.text3,letterSpacing:"0.01em"});
+    lbl.textContent=t.label;btn.appendChild(lbl);
+    btn.addEventListener("click",()=>{STATE.tab=t.id;render();});
+    tabBar.appendChild(btn);
+  });
+
+  root.appendChild(hdr);root.appendChild(content);root.appendChild(tabBar);
+}
+
+function renderLoading(){
+  const root=el("app");root.innerHTML="";
+  const wrap=document.createElement("div");
+  Object.assign(wrap.style,{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:"16px"});
+  const sp=document.createElement("div");
+  Object.assign(sp.style,{width:"32px",height:"32px",border:`2px solid ${T.border2}`,borderTop:"2px solid #fff",borderRadius:"50%"});
+  sp.className="spin";
+  const p=document.createElement("p");Object.assign(p.style,{color:T.text3,fontSize:"14px"});p.textContent="PT Manager";
+  wrap.appendChild(sp);wrap.appendChild(p);root.appendChild(wrap);
+}
+
+// ── 대시보드
+function renderDashboard(){
+  const wrap=document.createElement("div");
+  const hdr=document.createElement("div");hdr.style.marginBottom="28px";
+  hdr.innerHTML=`<p style="font-size:11px;color:${T.text3};letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px">Dashboard</p><h2 style="font-family:'Playfair Display',serif;font-size:30px;color:${T.text}">오늘의 현황</h2><p style="font-size:13px;color:${T.text3};margin-top:5px">${new Date().toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"long"})}</p>`;
+  wrap.appendChild(hdr);
+
+  // PT 진행률
+  const ptCard=mkCard({marginBottom:"14px"});
+  const ptHd=document.createElement("div");Object.assign(ptHd.style,{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"22px"});
+  ptHd.appendChild(mkLabel("PT 진행률"));ptHd.appendChild(mkTag(`${STATE.members.length}명`));ptCard.appendChild(ptHd);
+
+  if(STATE.members.length===0){const p=document.createElement("p");Object.assign(p.style,{color:T.text4,fontSize:"14px",textAlign:"center",padding:"20px 0"});p.textContent="등록된 회원이 없습니다";ptCard.appendChild(p);}
+  else STATE.members.forEach((m,i)=>{
+    const row=document.createElement("div");row.style.marginBottom=i<STATE.members.length-1?"24px":"0";
+    const rem=m.sessions-m.used,pct=Math.round(m.used/m.sessions*100);
+    const wLog=m.weightLog||[],diff=wLog.length>=2?(wLog.at(-1).w-wLog[0].w).toFixed(1):null;
+    const low=rem<=3;
+    const top=document.createElement("div");Object.assign(top.style,{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"});
+    const left=document.createElement("div");Object.assign(left.style,{display:"flex",alignItems:"center",gap:"8px"});
+    const nm=document.createElement("span");Object.assign(nm.style,{fontSize:"15px",fontWeight:"600",color:T.text});nm.textContent=m.name;
+    left.appendChild(nm);left.appendChild(mkTag(m.goal));
+    const right=document.createElement("div");Object.assign(right.style,{display:"flex",alignItems:"center",gap:"12px"});
+    if(diff!==null){const d=document.createElement("span");Object.assign(d.style,{fontSize:"12px",fontWeight:"600",color:+diff<0?T.green:+diff>0?T.red:T.text3});d.textContent=`${+diff>0?"+":""}${diff}kg`;right.appendChild(d);}
+    const remEl=document.createElement("span");Object.assign(remEl.style,{fontFamily:"'Playfair Display',serif",fontSize:"18px",color:low?T.red:T.text});remEl.innerHTML=`${rem}<span style="font-size:11px;color:${T.text3};margin-left:3px">회 남음</span>`;right.appendChild(remEl);
+    top.appendChild(left);top.appendChild(right);row.appendChild(top);
+    row.appendChild(mkBar(m.used,m.sessions,low?T.red:"#fff"));
+    const sub=document.createElement("p");Object.assign(sub.style,{fontSize:"11px",color:T.text4,marginTop:"5px",textAlign:"right"});sub.textContent=`${m.used}/${m.sessions}회 · ${pct}%`;row.appendChild(sub);
+    ptCard.appendChild(row);
+  });
+  wrap.appendChild(ptCard);
+
+  // 오늘 일정
+  const todayStr=today();
+  const todayList=[...STATE.schedules.filter(s=>s.date===todayStr)].sort((a,b)=>a.time.localeCompare(b.time));
+  const schCard=mkCard();
+  const schHd=document.createElement("div");Object.assign(schHd.style,{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px"});
+  schHd.appendChild(mkLabel("오늘 일정"));schHd.appendChild(mkTag(`${todayList.length}건`));schCard.appendChild(schHd);
+
+  if(todayList.length===0){const p=document.createElement("p");Object.assign(p.style,{color:T.text4,fontSize:"14px",textAlign:"center",padding:"24px 0"});p.textContent="오늘 예정된 세션이 없습니다";schCard.appendChild(p);}
+  else todayList.forEach((s,i)=>{
+    const m=STATE.members.find(x=>x.id===s.memberId);
+    const row=document.createElement("div");Object.assign(row.style,{display:"flex",alignItems:"center",gap:"14px",padding:"13px 0",borderTop:i===0?`1px solid ${T.border}`:"none",borderBottom:`1px solid ${T.border}`});
+    const time=document.createElement("div");Object.assign(time.style,{background:T.surface2,borderRadius:"10px",padding:"8px 14px",minWidth:"64px",textAlign:"center"});time.innerHTML=`<p style="font-family:'Playfair Display',serif;font-size:17px;color:${T.text}">${s.time}</p>`;
+    const info=document.createElement("div");info.style.flex="1";info.innerHTML=`<p style="font-size:15px;font-weight:600;color:${T.text}">${m?.name||""}</p><p style="font-size:12px;color:${T.text3};margin-top:2px">${s.duration}분</p>`;
+    row.appendChild(time);row.appendChild(info);
+    if(s.status==="완료"){const badge=document.createElement("span");Object.assign(badge.style,{fontSize:"11px",color:T.green,background:"#0b1f14",border:"1px solid #1a3528",borderRadius:"99px",padding:"4px 11px"});badge.textContent="완료";row.appendChild(badge);}
+    else{const btn=mkBtn("완료",async()=>{await updateDoc2("schedules",s.id,{status:"완료"});showToast("완료 처리되었습니다");},  "outline","sm");row.appendChild(btn);}
+    schCard.appendChild(row);
+  });
+  wrap.appendChild(schCard);
+  return wrap;
+}
+
+// ── 회원 관리
+function renderMembers(){
+  const wrap=document.createElement("div");
+  const GOALS=["체중감량","근육증가","체력향상","재활","다이어트","체형교정","유지"];
+
+  // 상세 보기 상태
+  let detailId=null;
+
+  const renderList=()=>{
+    wrap.innerHTML="";
+    const hdr=mkSectionHeader("Members","회원 관리",mkBtn("+ 신규 등록",()=>showAddModal(),"white","md"));
+    wrap.appendChild(hdr);
+
+    if(STATE.members.length===0){const p=document.createElement("p");Object.assign(p.style,{color:T.text4,fontSize:"14px",textAlign:"center",padding:"60px 0"});p.textContent="등록된 회원이 없습니다";wrap.appendChild(p);return;}
+
+    STATE.members.forEach(m=>{
+      const wLog=m.weightLog||[],w0=wLog[0]?.w,wN=wLog.at(-1)?.w;
+      const diff=wLog.length>=2?(wN-w0).toFixed(1):null,rem=m.sessions-m.used;
+      const card=mkCard({marginBottom:"12px",cursor:"pointer"});
+      card.addEventListener("click",()=>{detailId=m.id;renderDetail();});
+
+      const top=document.createElement("div");Object.assign(top.style,{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"});
+      const tl=document.createElement("div");
+      tl.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-family:'Playfair Display',serif;font-size:20px;color:${T.text}">${m.name}</span></div><p style="font-size:12px;color:${T.text3}">${m.phone||""}</p>`;
+      tl.querySelector("div").appendChild(mkTag(`${m.age}세 ${m.gender}`));
+      top.appendChild(tl);top.appendChild(mkTag(m.goal));card.appendChild(top);
+
+      const grid=document.createElement("div");Object.assign(grid.style,{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"14px"});
+      [["키",`${m.height}cm`],["체중",`${wN}kg`],["변화",diff!==null?`${+diff>0?"+":""}${diff}kg`:"—"],["잔여PT",`${rem}회`]].forEach(([k,v])=>{
+        const cell=document.createElement("div");Object.assign(cell.style,{background:T.surface2,borderRadius:"10px",padding:"10px 12px"});
+        cell.innerHTML=`<p style="font-size:10px;color:${T.text4};margin-bottom:5px">${k}</p><p style="font-family:'Playfair Display',serif;font-size:17px;color:${k==="잔여PT"&&rem<=3?T.red:k==="변화"&&diff!==null?(+diff<0?T.green:+diff>0?T.red:T.text):T.text}">${v}</p>`;
+        grid.appendChild(cell);
+      });
+      card.appendChild(grid);card.appendChild(mkBar(m.used,m.sessions));wrap.appendChild(card);
+    });
+  };
+
+  const renderDetail=()=>{
+    wrap.innerHTML="";
+    const m=STATE.members.find(x=>x.id===detailId);if(!m)return renderList();
+    const wLog=m.weightLog||[],w0=wLog[0]?.w,wN=wLog.at(-1)?.w;
+    const diff=wLog.length>=2?(wN-w0).toFixed(1):null;
+
+    const backBtn=mkBtn("← 목록으로",()=>renderList(),"ghost","sm",{marginBottom:"22px"});wrap.appendChild(backBtn);
+
+    const nameWrap=document.createElement("div");nameWrap.style.marginBottom="24px";
+    nameWrap.innerHTML=`<h2 style="font-family:'Playfair Display',serif;font-size:32px;color:${T.text};margin-bottom:8px">${m.name}</h2>`;
+    const tags=document.createElement("div");tags.style.cssText="display:flex;gap:8px;flex-wrap:wrap;";
+    [mkTag(`${m.age}세 ${m.gender}`),mkTag(m.goal),mkTag(`등록 ${m.startDate}`)].forEach(t=>tags.appendChild(t));
+    nameWrap.appendChild(tags);wrap.appendChild(nameWrap);
+
+    // 체중 카드
+    const wCard=mkCard({marginBottom:"12px"});wCard.appendChild(mkLabel("체중 변화"));
+    const wGrid=document.createElement("div");Object.assign(wGrid.style,{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginTop:"14px",marginBottom:"18px"});
+    [["최초",`${w0}kg`],["현재",`${wN}kg`],["총 변화",diff!==null?`${+diff>0?"+":""}${diff}kg`:"—"]].forEach(([k,v])=>{
+      const cell=document.createElement("div");Object.assign(cell.style,{background:T.surface2,borderRadius:"12px",padding:"14px"});
+      cell.innerHTML=`<p style="font-size:10px;color:${T.text4};margin-bottom:6px">${k}</p><p style="font-family:'Playfair Display',serif;font-size:22px;color:${k==="총 변화"&&diff!==null?(+diff<0?T.green:+diff>0?T.red:T.text):T.text}">${v}</p>`;
+      wGrid.appendChild(cell);
+    });
+    wCard.appendChild(wGrid);
+    const wHistLabel=document.createElement("p");Object.assign(wHistLabel.style,{fontSize:"11px",color:T.text3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"12px"});wHistLabel.textContent="기록 내역";wCard.appendChild(wHistLabel);
+    [...wLog].reverse().slice(0,6).forEach(w=>{
+      const row=document.createElement("div");Object.assign(row.style,{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`});
+      row.innerHTML=`<span style="font-size:13px;color:${T.text3}">${w.date}</span><span style="font-family:'Playfair Display',serif;font-size:17px;color:${T.text}">${w.w} kg</span>`;
+      wCard.appendChild(row);
+    });
+    const noteW=document.createElement("p");Object.assign(noteW.style,{fontSize:"11px",color:T.text4,marginTop:"12px",textAlign:"center"});noteW.textContent="* 체중은 회원이 직접 입력합니다";wCard.appendChild(noteW);
+    wrap.appendChild(wCard);
+
+    // 신체 정보 카드
+    const bCard=mkCard({marginBottom:"12px"});bCard.appendChild(mkLabel("신체 정보"));
+    const bGrid=document.createElement("div");Object.assign(bGrid.style,{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginTop:"14px"});
+    [["키",`${m.height}cm`],["전화번호",m.phone||"-"],["PT 잔여",`${m.sessions-m.used}회`],["진행 현황",`${m.used}/${m.sessions}회`]].forEach(([k,v])=>{
+      const cell=document.createElement("div");Object.assign(cell.style,{background:T.surface2,borderRadius:"10px",padding:"12px 14px"});
+      cell.innerHTML=`<p style="font-size:10px;color:${T.text4};margin-bottom:5px">${k}</p><p style="font-size:15px;font-weight:600;color:${T.text}">${v}</p>`;
+      bGrid.appendChild(cell);
+    });
+    bCard.appendChild(bGrid);bCard.appendChild(document.createElement("div")).style.marginTop="14px";bCard.appendChild(mkBar(m.used,m.sessions));wrap.appendChild(bCard);
+
+    if(m.memo){const mCard=mkCard();mCard.appendChild(mkLabel("트레이너 메모"));const mp=document.createElement("p");Object.assign(mp.style,{fontSize:"14px",color:T.text2,lineHeight:"1.75",marginTop:"10px"});mp.textContent=m.memo;mCard.appendChild(mp);wrap.appendChild(mCard);}
+  };
+
+  const showAddModal=()=>{
+    const content=document.createElement("div");
+    const grid=document.createElement("div");Object.assign(grid.style,{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"});
+
+    const fields={};
+    const addGridField=(label,key,type,ph,col)=>{
+      const f=mkFld(label);if(col)f.style.gridColumn=col;
+      const i=makeInp({type:type||"text",placeholder:ph||""});
+      f.appendChild(i);grid.appendChild(f);fields[key]=i;
+    };
+    addGridField("이름","name","text","홍길동","1/-1");
+    addGridField("나이","age","number","25");
+    const gFld=mkFld("성별");const gSel=makeSel(["여","남"],"여");gFld.appendChild(gSel);grid.appendChild(gFld);fields.gender=gSel;
+    const goFld=mkFld("운동 목표");goFld.style.gridColumn="1/-1";const goSel=makeSel(GOALS,GOALS[0]);goFld.appendChild(goSel);grid.appendChild(goFld);fields.goal=goSel;
+    addGridField("키 (cm)","height","number","165");
+    addGridField("초기 체중 (kg)","initWeight","number","60.0");
+    addGridField("PT 총 횟수","sessions","number","20");
+    addGridField("전화번호","phone","text","010-0000-0000");
+    const mFld=mkFld("메모 / 특이사항");mFld.style.gridColumn="1/-1";const mTa=makeTa("부상 이력, 주의사항 등");mFld.appendChild(mTa);grid.appendChild(mFld);fields.memo=mTa;
+    content.appendChild(grid);
+
+    const saveBtn=mkBtn("등록하기",async()=>{
+      const name=fields.name.value.trim();if(!name){showToast("이름을 입력해주세요",false);return;}
+      const w=+fields.initWeight.value,td=today();
+      saveBtn.innerHTML=`<span class="spin">⟳</span> 저장 중...`;
+      try{
+        await addDoc2("members",{
+          trainerId:uid(),name,age:+fields.age.value,gender:fields.gender.value,
+          goal:fields.goal.value,sessions:+fields.sessions.value,used:0,
+          startDate:td,height:+fields.height.value,phone:fields.phone.value,
+          memo:fields.memo.value,weightLog:[{date:td,w}],
+        });
+        showToast(`${name}님 등록 완료!`);
+        document.querySelector(".ov")?.remove();
+      }catch(e){showToast("오류가 발생했습니다",false);saveBtn.textContent="등록하기";}
+    },"white","lg",{width:"100%",marginTop:"6px"});
+    content.appendChild(saveBtn);
+    mkModal("신규 회원 등록",content,true);
+  };
+
+  renderList();
+  return wrap;
+}
+
+// ── 운동일지
+function renderWorkout(){
+  const wrap=document.createElement("div");
+  const isT=STATE.role==="trainer";
+  let filter=isT?"all":STATE.myMemberId;
+
+  const rerender=()=>{
+    wrap.innerHTML="";
+    const hdr=mkSectionHeader("Workout","운동일지",mkBtn("+ 기록하기",()=>showAddModal(),"white","md"));
+    wrap.appendChild(hdr);
+
+    if(isT){
+      const filterWrap=document.createElement("div");Object.assign(filterWrap.style,{display:"flex",gap:"8px",marginBottom:"22px",overflowX:"auto",paddingBottom:"4px"});
+      [{id:"all",name:"전체"},...STATE.members].forEach(m=>{
+        const b=document.createElement("button");const active=filter===(m.id==="all"?"all":m.id);
+        Object.assign(b.style,{padding:"7px 16px",borderRadius:"99px",border:`1px solid ${active?"#fff":T.border2}`,background:active?"#fff":"transparent",color:active?"#000":T.text3,fontSize:"13px",fontWeight:"600",cursor:"pointer",whiteSpace:"nowrap"});
+        b.textContent=m.name;b.addEventListener("click",()=>{filter=m.id==="all"?"all":m.id;rerender();});
+        filterWrap.appendChild(b);
+      });
+      wrap.appendChild(filterWrap);
+    }
+
+    const shown=[...(filter==="all"?STATE.logs:STATE.logs.filter(l=>l.memberId===filter))].sort((a,b)=>b.date.localeCompare(a.date));
+
+    if(shown.length===0){const p=document.createElement("p");Object.assign(p.style,{color:T.text4,fontSize:"14px",textAlign:"center",padding:"60px 0"});p.textContent="기록이 없습니다";wrap.appendChild(p);return;}
+
+    shown.forEach(log=>{
+      const m=STATE.members.find(x=>x.id===log.memberId);
+      const vol=log.exercises.reduce((a,e)=>a+e.sets*e.reps*(e.weight||0),0);
+      const card=mkCard({marginBottom:"12px"});
+
+      const top=document.createElement("div");Object.assign(top.style,{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"18px"});
+      top.innerHTML=`<div><p style="font-family:'Playfair Display',serif;font-size:19px;color:${T.text};margin-bottom:3px">${m?.name||""}</p><p style="font-size:12px;color:${T.text3}">${log.date}</p></div><div style="text-align:right"><p style="font-family:'Playfair Display',serif;font-size:17px;color:${T.text2}">${log.exercises.length}종목</p>${vol>0?`<p style="font-size:11px;color:${T.text3};margin-top:2px">${vol.toLocaleString()}kg vol</p>`:""}</div>`;
+      card.appendChild(top);
+
+      const thRow=document.createElement("div");Object.assign(thRow.style,{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:"6px",paddingBottom:"9px",borderBottom:`1px solid ${T.border}`,marginBottom:"4px"});
+      ["운동명","세트","횟수","무게"].forEach(h=>{const p=document.createElement("p");Object.assign(p.style,{fontSize:"10px",color:T.text4,letterSpacing:"0.07em",textTransform:"uppercase"});p.textContent=h;thRow.appendChild(p);});
+      card.appendChild(thRow);
+
+      log.exercises.forEach((ex,i)=>{
+        const row=document.createElement("div");Object.assign(row.style,{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:"6px",padding:"9px 0",borderBottom:i<log.exercises.length-1?`1px solid ${T.surface2}`:"none"});
+        row.innerHTML=`<p style="font-size:14px;font-weight:600;color:#e5e5e5">${ex.name}</p><p style="font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}">${ex.sets}</p><p style="font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}">${ex.reps}</p><p style="font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}">${ex.weight>0?ex.weight+"kg":"—"}</p>`;
+        card.appendChild(row);
+      });
+      if(log.note){const np=document.createElement("p");Object.assign(np.style,{marginTop:"14px",fontSize:"13px",color:T.text3,lineHeight:"1.7",paddingTop:"14px",borderTop:`1px solid ${T.border}`});np.textContent=log.note;card.appendChild(np);}
+      wrap.appendChild(card);
+    });
+  };
+
+  const showAddModal=()=>{
+    const content=document.createElement("div");
+    let exercises=[{name:"",sets:"",reps:"",weight:""}];
+    const memberId=isT?"":STATE.myMemberId;
+    let selMemberId=memberId;
+
+    if(isT){const mf=mkFld("회원");const ms=makeSel([{val:"",label:"회원 선택"},...STATE.members.map(m=>({val:m.id,label:m.name}))],  "");ms.addEventListener("change",e=>selMemberId=e.target.value);mf.appendChild(ms);content.appendChild(mf);}
+
+    const dateFld=mkFld("날짜");const dateI=makeInp({type:"date",value:today()});dateFld.appendChild(dateI);content.appendChild(dateFld);
+
+    const exLabel=mkLabel("운동 목록");content.appendChild(exLabel);
+    const thRow=document.createElement("div");Object.assign(thRow.style,{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 28px",gap:"6px",marginBottom:"8px",marginTop:"8px"});
+    ["운동명","세트","횟수","무게(kg)",""].forEach(h=>{const p=document.createElement("p");Object.assign(p.style,{fontSize:"10px",color:T.text4});p.textContent=h;thRow.appendChild(p);});
+    content.appendChild(thRow);
+
+    const exWrap=document.createElement("div");content.appendChild(exWrap);
+    const exInputs=[];
+
+    const addExRow=()=>{
+      const row=document.createElement("div");Object.assign(row.style,{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 28px",gap:"6px",marginBottom:"8px"});
+      const ni=makeInp({type:"text",placeholder:"스쿼트"},{padding:"10px 12px"});
+      const si=makeInp({type:"number",placeholder:"4"},{padding:"10px"});
+      const ri=makeInp({type:"number",placeholder:"12"},{padding:"10px"});
+      const wi=makeInp({type:"number",placeholder:"60"},{padding:"10px"});
+      const del=document.createElement("button");Object.assign(del.style,{background:T.surface2,border:`1px solid ${T.border2}`,borderRadius:"8px",color:T.text3,cursor:"pointer",fontSize:"16px"});del.textContent="×";
+      del.addEventListener("click",()=>{row.remove();exInputs.splice(exInputs.findIndex(e=>e.row===row),1);});
+      [ni,si,ri,wi,del].forEach(x=>row.appendChild(x));
+      exWrap.appendChild(row);exInputs.push({row,ni,si,ri,wi});
+    };
+    addExRow();
+
+    const addBtn=mkBtn("+ 운동 추가",addExRow,"ghost","sm",{marginBottom:"16px"});content.appendChild(addBtn);
+    const noteFld=mkFld("메모 (선택)");const noteTa=makeTa("오늘 세션 특이사항, 다음 목표 등");noteFld.appendChild(noteTa);content.appendChild(noteFld);
+
+    const saveBtn=mkBtn("저장하기",async()=>{
+      const mid=isT?selMemberId:STATE.myMemberId;
+      if(!mid){showToast("회원을 선택해주세요",false);return;}
+      const exs=exInputs.filter(e=>e.ni.value).map(e=>({name:e.ni.value,sets:+e.si.value,reps:+e.ri.value,weight:+e.wi.value}));
+      if(!exs.length){showToast("운동을 입력해주세요",false);return;}
+      saveBtn.innerHTML=`<span class="spin">⟳</span> 저장 중...`;
+      const trainerId=STATE.role==="trainer"?uid():STATE.members.find(x=>x.id===mid)?.trainerId;
+      try{
+        await addDoc2("logs",{trainerId,memberId:mid,date:dateI.value,exercises:exs,note:noteTa.value});
+        showToast("운동일지 저장 완료!");document.querySelector(".ov")?.remove();
+      }catch(e){showToast("오류가 발생했습니다",false);saveBtn.textContent="저장하기";}
+    },"white","lg",{width:"100%"});
+    content.appendChild(saveBtn);
+    mkModal("운동일지 작성",content,true);
+  };
+
+  rerender();return wrap;
+}
+
+// ── 식단 기록 (회원)
+function renderDietMember(){
+  const wrap=document.createElement("div");
+  const ICON={아침:"🌅",점심:"☀️",저녁:"🌙",간식:"🍎"};
+
+  const hdr=mkSectionHeader("Nutrition","식단 기록",mkBtn("+ 기록하기",()=>showAddModal(),"white","md"));
+  wrap.appendChild(hdr);
+
+  const myDiets=[...STATE.diets].sort((a,b)=>b.date.localeCompare(a.date));
+
+  if(myDiets.length===0){const p=document.createElement("p");Object.assign(p.style,{color:T.text4,fontSize:"14px",textAlign:"center",padding:"60px 0"});p.textContent="식단 기록이 없습니다";wrap.appendChild(p);}
+  else myDiets.forEach(d=>{
+    const card=mkCard({marginBottom:"12px"});
+    const top=document.createElement("div");Object.assign(top.style,{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"18px"});
+    top.innerHTML=`<p style="font-size:13px;color:${T.text3}">${d.date}</p><div style="text-align:right"><p style="font-family:'Playfair Display',serif;font-size:26px;color:${T.text}">${d.totalKcal.toLocaleString()}</p><p style="font-size:10px;color:${T.text3};letter-spacing:0.07em">KCAL</p></div>`;
+    card.appendChild(top);
+    d.meals.forEach(meal=>{
+      const mw=document.createElement("div");mw.style.marginBottom="14px";
+      const ml=document.createElement("p");Object.assign(ml.style,{fontSize:"11px",color:T.text3,letterSpacing:"0.07em",marginBottom:"8px"});ml.textContent=`${ICON[meal.time]||"🍽"} ${meal.time.toUpperCase()}`;mw.appendChild(ml);
+      meal.items.forEach(it=>{
+        const row=document.createElement("div");Object.assign(row.style,{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${T.surface2}`});
+        row.innerHTML=`<span style="font-size:14px;color:#d0d0d0">${it.food}</span><span style="font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}">${it.kcal} kcal</span>`;mw.appendChild(row);
+      });
+      card.appendChild(mw);
+    });
+    card.appendChild(mkDivider(14));
+    const tags=document.createElement("div");tags.style.cssText="display:flex;gap:10px;flex-wrap:wrap;";
+    tags.appendChild(mkTag(`💧 ${d.water}L`));tags.appendChild(mkTag(`☕ 커피 ${d.coffee}잔`));card.appendChild(tags);
+    if(d.trainerRating>0){
+      const fb=document.createElement("div");Object.assign(fb.style,{marginTop:"14px",background:T.surface2,borderRadius:"12px",padding:"14px 16px"});
+      const fbTop=document.createElement("div");Object.assign(fbTop.style,{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:d.trainerComment?"10px":"0"});
+      const fbl=document.createElement("p");Object.assign(fbl.style,{fontSize:"11px",color:T.text3,letterSpacing:"0.07em"});fbl.textContent="TRAINER FEEDBACK";
+      fbTop.appendChild(fbl);fbTop.appendChild(mkStars(d.trainerRating,null,15));fb.appendChild(fbTop);
+      if(d.trainerComment){const cp=document.createElement("p");Object.assign(cp.style,{fontSize:"13px",color:T.text2,lineHeight:"1.7"});cp.textContent=d.trainerComment;fb.appendChild(cp);}
+      card.appendChild(fb);
+    }
+    wrap.appendChild(card);
+  });
+
+  const showAddModal=()=>{
+    const content=document.createElement("div");
+    const MEAL_TIMES=["아침","점심","저녁","간식"];
+    let meals=[{time:"아침",items:[{food:"",kcal:""}]},{time:"점심",items:[{food:"",kcal:""}]},{time:"저녁",items:[{food:"",kcal:""}]}];
+
+    const grid=document.createElement("div");Object.assign(grid.style,{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"});
+    const dateFld=mkFld("날짜");dateFld.style.gridColumn="1/-1";const dateI=makeInp({type:"date",value:today()});dateFld.appendChild(dateI);
+    const wFld=mkFld("수분 (L)");const wI=makeInp({type:"number",step:"0.5",placeholder:"2.0"});wFld.appendChild(wI);
+    const cFld=mkFld("커피 (잔)");const cI=makeInp({type:"number",placeholder:"1"});cFld.appendChild(cI);
+    grid.appendChild(dateFld);grid.appendChild(wFld);grid.appendChild(cFld);content.appendChild(grid);
+    content.appendChild(mkDivider());
+
+    const mealArea=document.createElement("div");
+    const aiRow=document.createElement("div");Object.assign(aiRow.style,{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"});
+    aiRow.appendChild(mkLabel("끼니별 식단"));
+    const aiBtn=document.createElement("button");Object.assign(aiBtn.style,{background:"#fff",color:"#000",border:"none",borderRadius:"9px",padding:"8px 16px",cursor:"pointer",fontSize:"12px",fontWeight:"700",display:"flex",alignItems:"center",gap:"6px"});
+    aiBtn.innerHTML="✦ AI 칼로리 자동계산";
+    const mealInputs={};
+
+    const renderMeals=()=>{
+      mealArea.innerHTML="";
+      meals.forEach((meal,mi)=>{
+        const mw=document.createElement("div");mw.style.marginBottom="20px";
+        const ml=document.createElement("p");Object.assign(ml.style,{fontSize:"12px",color:T.text2,marginBottom:"10px"});ml.textContent=`${ICON[meal.time]} ${meal.time}`;mw.appendChild(ml);
+        if(!mealInputs[meal.time])mealInputs[meal.time]=[];
+        meal.items.forEach((it,ii)=>{
+          const row=document.createElement("div");Object.assign(row.style,{display:"grid",gridTemplateColumns:"3fr 1fr",gap:"8px",marginBottom:"8px"});
+          const fi=makeInp({type:"text",placeholder:"음식명 (예: 닭가슴살)"},{padding:"10px 12px"});
+          fi.value=it.food;
+          fi.addEventListener("input",e=>{const k=findKcal(e.target.value);meals[mi].items[ii].food=e.target.value;if(k!==null){meals[mi].items[ii].kcal=k;ki.value=k;ki.style.color=T.green;}});
+          const ki=makeInp({type:"number",placeholder:"kcal"},{padding:"10px",color:it.kcal?T.green:T.text3});
+          ki.value=it.kcal||"";ki.addEventListener("input",e=>meals[mi].items[ii].kcal=+e.target.value);
+          row.appendChild(fi);row.appendChild(ki);mw.appendChild(row);
+          if(!mealInputs[meal.time][ii])mealInputs[meal.time][ii]={fi,ki};
+          else{mealInputs[meal.time][ii].fi=fi;mealInputs[meal.time][ii].ki=ki;}
+        });
+        const addItemBtn=document.createElement("button");Object.assign(addItemBtn.style,{background:"none",border:"none",color:T.text4,fontSize:"12px",cursor:"pointer",padding:"0"});addItemBtn.textContent="+ 음식 추가";
+        addItemBtn.addEventListener("click",()=>{meals[mi].items.push({food:"",kcal:""});renderMeals();});
+        mw.appendChild(addItemBtn);mealArea.appendChild(mw);
+      });
+    };
+
+    aiBtn.addEventListener("click",async()=>{
+      const foods=meals.flatMap(m=>m.items.map(it=>it.food)).filter(Boolean);
+      if(!foods.length){showToast("음식을 먼저 입력해주세요",false);return;}
+      aiBtn.innerHTML=`<span class="spin">⟳</span> 계산 중...`;
+      try{
+        const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,messages:[{role:"user",content:`다음 음식들의 1인분 칼로리를 JSON으로만 반환. 키=음식명, 값=정수. 다른 텍스트 없이 JSON만: ${foods.join(", ")}`}]})});
+        const data=await r.json();
+        const raw=data.content?.map(c=>c.text||"").join("").replace(/```json|```/g,"").trim();
+        const parsed=JSON.parse(raw);
+        meals.forEach(meal=>{meal.items.forEach(it=>{if(!it.food)return;const k=Object.keys(parsed).find(k=>k.includes(it.food)||it.food.includes(k));if(k)it.kcal=parsed[k];});});
+        renderMeals();showToast("칼로리 계산 완료!");
+      }catch{
+        meals.forEach(meal=>{meal.items.forEach(it=>{const k=findKcal(it.food);if(k!==null)it.kcal=k;});});
+        renderMeals();
+      }
+      aiBtn.innerHTML="✦ AI 칼로리 자동계산";
+    });
+
+    aiRow.appendChild(aiBtn);content.appendChild(aiRow);
+    const hint=document.createElement("p");Object.assign(hint.style,{fontSize:"11px",color:T.text4,marginBottom:"16px"});hint.textContent="음식명 입력 시 자동으로 kcal이 채워집니다.";content.appendChild(hint);
+    content.appendChild(mealArea);renderMeals();
+
+    // 끼니 추가 버튼
+    const addMealWrap=document.createElement("div");Object.assign(addMealWrap.style,{display:"flex",gap:"8px",marginBottom:"16px",flexWrap:"wrap"});
+    MEAL_TIMES.filter(t=>!meals.find(m=>m.time===t)).forEach(t=>{
+      const b=document.createElement("button");Object.assign(b.style,{background:T.surface2,border:`1px solid ${T.border2}`,borderRadius:"99px",padding:"5px 14px",fontSize:"12px",color:T.text3,cursor:"pointer"});b.textContent=`+ ${t}`;
+      b.addEventListener("click",()=>{meals.push({time:t,items:[{food:"",kcal:""}]});renderMeals();addMealWrap.innerHTML="";MEAL_TIMES.filter(t=>!meals.find(m=>m.time===t)).forEach(t2=>{/*rebuild*/});});
+      addMealWrap.appendChild(b);
+    });
+    content.appendChild(addMealWrap);
+
+    const saveBtn=mkBtn("저장하기",async()=>{
+      const validMeals=meals.map(m=>({...m,items:m.items.filter(it=>it.food)})).filter(m=>m.items.length>0);
+      if(!validMeals.length){showToast("식단을 입력해주세요",false);return;}
+      const tot=validMeals.reduce((a,m)=>a+m.items.reduce((b,it)=>b+(+it.kcal||0),0),0);
+      saveBtn.innerHTML=`<span class="spin">⟳</span> 저장 중...`;
+      const m=STATE.members.find(x=>x.id===STATE.myMemberId);
+      try{
+        await addDoc2("diets",{trainerId:m?.trainerId,memberId:STATE.myMemberId,date:dateI.value,meals:validMeals,water:+wI.value,coffee:+cI.value,totalKcal:tot,trainerRating:0,trainerComment:""});
+        showToast("식단 저장 완료!");document.querySelector(".ov")?.remove();
+      }catch(e){showToast("오류가 발생했습니다",false);saveBtn.textContent="저장하기";}
+    },"white","lg",{width:"100%"});
+    content.appendChild(saveBtn);
+    mkModal("식단 기록",content,true);
+  };
+
+  return wrap;
+}
+
+// ── 식단 검토 (트레이너)
+function renderDietReview(){
+  const wrap=document.createElement("div");
+  const ICON={아침:"🌅",점심:"☀️",저녁:"🌙",간식:"🍎"};
+  let filter="all";
+  let editingId=null;
+
+  const rerender=()=>{
+    wrap.innerHTML="";
+    wrap.appendChild(mkSectionHeader("Diet Review","식단 검토"));
+
+    const fw=document.createElement("div");Object.assign(fw.style,{display:"flex",gap:"8px",marginBottom:"22px",overflowX:"auto",paddingBottom:"4px"});
+    [{id:"all",name:"전체"},...STATE.members].forEach(m=>{
+      const b=document.createElement("button");const active=filter===(m.id==="all"?"all":m.id);
+      Object.assign(b.style,{padding:"7px 16px",borderRadius:"99px",border:`1px solid ${active?"#fff":T.border2}`,background:active?"#fff":"transparent",color:active?"#000":T.text3,fontSize:"13px",fontWeight:"600",cursor:"pointer",whiteSpace:"nowrap"});
+      b.textContent=m.name;b.addEventListener("click",()=>{filter=m.id==="all"?"all":m.id;rerender();});fw.appendChild(b);
+    });
+    wrap.appendChild(fw);
+
+    const shown=[...(filter==="all"?STATE.diets:STATE.diets.filter(d=>d.memberId===filter))].sort((a,b)=>b.date.localeCompare(a.date));
+
+    if(shown.length===0){const p=document.createElement("p");Object.assign(p.style,{color:T.text4,fontSize:"14px",textAlign:"center",padding:"60px 0"});p.textContent="식단 기록이 없습니다";wrap.appendChild(p);return;}
+
+    shown.forEach(d=>{
+      const m=STATE.members.find(x=>x.id===d.memberId);
+      const card=mkCard({marginBottom:"12px"});
+      const top=document.createElement("div");Object.assign(top.style,{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"18px"});
+      top.innerHTML=`<div><p style="font-family:'Playfair Display',serif;font-size:19px;color:${T.text};margin-bottom:3px">${m?.name||""}</p><p style="font-size:12px;color:${T.text3}">${d.date}</p></div><div style="text-align:right"><p style="font-family:'Playfair Display',serif;font-size:24px;color:${T.text}">${d.totalKcal.toLocaleString()}</p><p style="font-size:10px;color:${T.text3};letter-spacing:0.07em">KCAL</p></div>`;
+      card.appendChild(top);
+
+      d.meals.forEach(meal=>{
+        const mw=document.createElement("div");mw.style.marginBottom="13px";
+        const ml=document.createElement("p");Object.assign(ml.style,{fontSize:"11px",color:T.text3,letterSpacing:"0.07em",marginBottom:"8px"});ml.textContent=`${ICON[meal.time]||"🍽"} ${meal.time.toUpperCase()}`;mw.appendChild(ml);
+        meal.items.forEach(it=>{const row=document.createElement("div");Object.assign(row.style,{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${T.surface2}`});row.innerHTML=`<span style="font-size:14px;color:#d0d0d0">${it.food}</span><span style="font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}">${it.kcal} kcal</span>`;mw.appendChild(row);});
+        card.appendChild(mw);
+      });
+
+      card.appendChild(mkDivider(14));
+      const tags=document.createElement("div");tags.style.cssText="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;";
+      tags.appendChild(mkTag(`💧 ${d.water}L`));tags.appendChild(mkTag(`☕ 커피 ${d.coffee}잔`));card.appendChild(tags);
+      card.appendChild(mkDivider(0));
+
+      // 평가 영역
+      const evalArea=document.createElement("div");evalArea.style.paddingTop="16px";
+      const isEditing=editingId===d.id;
+
+      if(!isEditing){
+        const evalRow=document.createElement("div");Object.assign(evalRow.style,{display:"flex",justifyContent:"space-between",alignItems:"flex-start"});
+        const left=document.createElement("div");
+        if(d.trainerRating>0){left.appendChild(mkStars(d.trainerRating,null,18));if(d.trainerComment){const cp=document.createElement("p");Object.assign(cp.style,{fontSize:"13px",color:T.text2,marginTop:"8px",lineHeight:"1.7",maxWidth:"300px"});cp.textContent=d.trainerComment;left.appendChild(cp);}}
+        else{const np=document.createElement("p");Object.assign(np.style,{fontSize:"12px",color:T.text4});np.textContent="피드백 미작성";left.appendChild(np);}
+        const editBtn=mkBtn(d.trainerRating>0?"수정":"평가하기",()=>{editingId=d.id;rerender();},"ghost","sm");
+        evalRow.appendChild(left);evalRow.appendChild(editBtn);evalArea.appendChild(evalRow);
+      }else{
+        let starVal=d.trainerRating||0;
+        const starLabel=document.createElement("p");Object.assign(starLabel.style,{fontSize:"11px",color:T.text3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"14px"});starLabel.textContent="식단 평가";evalArea.appendChild(starLabel);
+        const starWrap=document.createElement("div");starWrap.style.marginBottom="16px";
+        const stars=mkStars(starVal,v=>{starVal=v;starWrap.innerHTML="";starWrap.appendChild(mkStars(starVal,v2=>{starVal=v2;starWrap.innerHTML="";starWrap.appendChild(mkStars(starVal,null,30));},30));},30);
+        starWrap.appendChild(stars);evalArea.appendChild(starWrap);
+        const commentTa=makeTa("피드백 입력 (예: 단백질 비율 좋음, 탄수화물 조금 늘려보세요)",{marginBottom:"12px"});
+        commentTa.value=d.trainerComment||"";evalArea.appendChild(commentTa);
+        const btnRow=document.createElement("div");btnRow.style.cssText="display:flex;gap:8px;";
+        const saveBtn=mkBtn("저장",async()=>{
+          saveBtn.innerHTML=`<span class="spin">⟳</span>`;
+          try{await updateDoc2("diets",d.id,{trainerRating:starVal,trainerComment:commentTa.value});editingId=null;showToast("피드백 저장 완료!");}
+          catch{showToast("오류가 발생했습니다",false);}
+        },"white","md",{flex:"1"});
+        const cancelBtn=mkBtn("취소",()=>{editingId=null;rerender();},"ghost","md");
+        btnRow.appendChild(saveBtn);btnRow.appendChild(cancelBtn);evalArea.appendChild(btnRow);
+      }
+      card.appendChild(evalArea);wrap.appendChild(card);
+    });
+  };
+
+  rerender();return wrap;
+}
+
+// ── 체중 입력 (회원)
+function renderWeight(){
+  const wrap=document.createElement("div");
+  wrap.appendChild(mkSectionHeader("Weight Tracking","체중 기록"));
+
+  const m=STATE.members.find(x=>x.id===STATE.myMemberId);
+  if(!m){const p=document.createElement("p");p.style.color=T.text4;p.textContent="정보를 불러오는 중...";wrap.appendChild(p);return wrap;}
+
+  const wLog=m.weightLog||[],w0=wLog[0]?.w,wN=wLog.at(-1)?.w;
+  const diff=wLog.length>=2?(wN-w0).toFixed(1):null;
+
+  const card=mkCard({marginBottom:"14px"});card.appendChild(mkLabel("나의 체중 변화"));
+  const grid=document.createElement("div");Object.assign(grid.style,{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginTop:"14px",marginBottom:"20px"});
+  [["시작",`${w0}kg`],["현재",`${wLog.at(-1)?.w}kg`],["변화",diff!==null?`${+diff>0?"+":""}${diff}kg`:"—"]].forEach(([k,v])=>{
+    const cell=document.createElement("div");Object.assign(cell.style,{background:T.surface2,borderRadius:"12px",padding:"16px 12px",textAlign:"center"});
+    cell.innerHTML=`<p style="font-size:10px;color:${T.text4};margin-bottom:8px">${k}</p><p style="font-family:'Playfair Display',serif;font-size:22px;color:${k==="변화"&&diff!==null?(+diff<0?T.green:+diff>0?T.red:T.text):T.text}">${v}</p>`;
+    grid.appendChild(cell);
+  });
+  card.appendChild(grid);
+
+  const histLabel=document.createElement("p");Object.assign(histLabel.style,{fontSize:"11px",color:T.text3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"12px"});histLabel.textContent="기록 내역";card.appendChild(histLabel);
+  [...wLog].reverse().slice(0,8).forEach(entry=>{
+    const row=document.createElement("div");Object.assign(row.style,{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${T.border}`});
+    row.innerHTML=`<span style="font-size:13px;color:${T.text3}">${entry.date}</span><span style="font-family:'Playfair Display',serif;font-size:18px;color:${T.text}">${entry.w} kg</span>`;
+    card.appendChild(row);
+  });
+  wrap.appendChild(card);
+
+  // 입력 카드
+  const inputCard=mkCard();inputCard.appendChild(mkLabel("오늘 체중 입력"));
+  const inputRow=document.createElement("div");Object.assign(inputRow.style,{display:"flex",gap:"10px",marginTop:"14px"});
+  const wInput=makeInp({type:"number",step:"0.1",placeholder:"59.5"},{flex:"1",fontSize:"22px",textAlign:"center",letterSpacing:"0.04em"});
+  const saveBtn=mkBtn("저장",async()=>{
+    if(!wInput.value){showToast("체중을 입력해주세요",false);return;}
+    const val=+wInput.value;const td=today();
+    saveBtn.innerHTML=`<span class="spin">⟳</span>`;
+    try{
+      const newLog=[...(m.weightLog||[]),{date:td,w:val}];
+      await updateDoc2("members",STATE.myMemberId,{weightLog:newLog,weight:val});
+      wInput.value="";showToast("체중 저장 완료! ✓");
+    }catch(e){showToast("오류가 발생했습니다",false);}
+    saveBtn.textContent="저장";
+  },"white","md");
+  inputRow.appendChild(wInput);inputRow.appendChild(saveBtn);inputCard.appendChild(inputRow);
+  const hint=document.createElement("p");Object.assign(hint.style,{fontSize:"11px",color:T.text4,textAlign:"center",marginTop:"14px"});hint.textContent="입력하면 트레이너가 변화를 실시간으로 확인합니다";inputCard.appendChild(hint);
+  wrap.appendChild(inputCard);
+  return wrap;
+}
+
+// ── 일정
+function renderSchedule(){
+  const wrap=document.createElement("div");
+  const isT=STATE.role==="trainer";
+
+  wrap.appendChild(mkSectionHeader("Schedule","PT 일정",!isT?null:mkBtn("+ 일정 추가",()=>showAddModal(),"white","md")));
+
+  const list=isT?STATE.schedules:STATE.schedules.filter(s=>s.memberId===STATE.myMemberId);
+  const upcoming=[...list.filter(s=>s.status==="예정")].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const done=[...list.filter(s=>s.status==="완료")].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+
+  const mkRow=(s,canComplete)=>{
+    const m=STATE.members.find(x=>x.id===s.memberId);
+    const row=document.createElement("div");Object.assign(row.style,{display:"flex",alignItems:"center",gap:"14px",padding:"13px 0",borderBottom:`1px solid ${T.border}`});
+    const time=document.createElement("div");Object.assign(time.style,{background:T.surface2,borderRadius:"10px",padding:"9px 14px",minWidth:"58px",textAlign:"center"});
+    time.innerHTML=`<p style="font-family:'Playfair Display',serif;font-size:17px;color:${T.text}">${s.time}</p><p style="font-size:10px;color:${T.text4};margin-top:2px">${s.date.slice(5)}</p>`;
+    const info=document.createElement("div");info.style.flex="1";
+    info.innerHTML=`<p style="font-size:15px;font-weight:600;color:${T.text}">${m?.name||""}</p><p style="font-size:12px;color:${T.text3};margin-top:2px">${s.duration}분</p>`;
+    row.appendChild(time);row.appendChild(info);
+    if(canComplete){const btn=mkBtn("완료",async()=>{await updateDoc2("schedules",s.id,{status:"완료"});showToast("완료 처리되었습니다");},"outline","sm");row.appendChild(btn);}
+    else{const badge=document.createElement("span");Object.assign(badge.style,{fontSize:"11px",color:T.green,background:"#0b1f14",border:"1px solid #1a3528",borderRadius:"99px",padding:"4px 11px"});badge.textContent="완료";row.appendChild(badge);}
+    return row;
+  };
+
+  const upCard=mkCard({marginBottom:"14px"});
+  const upHd=document.createElement("div");Object.assign(upHd.style,{display:"flex",justifyContent:"space-between",marginBottom:"16px"});
+  upHd.appendChild(mkLabel("예정된 일정"));upHd.appendChild(mkTag(`${upcoming.length}건`));upCard.appendChild(upHd);
+  if(upcoming.length===0){const p=document.createElement("p");Object.assign(p.style,{color:T.text4,fontSize:"14px",padding:"16px 0"});p.textContent="예정된 일정이 없습니다";upCard.appendChild(p);}
+  else upcoming.forEach(s=>upCard.appendChild(mkRow(s,isT)));
+  wrap.appendChild(upCard);
+
+  const doneCard=mkCard();
+  const doneHd=document.createElement("div");Object.assign(doneHd.style,{display:"flex",justifyContent:"space-between",marginBottom:"16px"});
+  doneHd.appendChild(mkLabel("완료된 세션"));doneHd.appendChild(mkTag(`${done.length}건`));doneCard.appendChild(doneHd);
+  if(done.length===0){const p=document.createElement("p");Object.assign(p.style,{color:T.text4,fontSize:"14px",padding:"16px 0"});p.textContent="완료된 세션이 없습니다";doneCard.appendChild(p);}
+  else done.forEach(s=>doneCard.appendChild(mkRow(s,false)));
+  wrap.appendChild(doneCard);
+
+  const showAddModal=()=>{
+    const content=document.createElement("div");
+    const mFld=mkFld("회원");const mSel=makeSel([{val:"",label:"회원 선택"},...STATE.members.map(m=>({val:m.id,label:m.name}))],  "");mFld.appendChild(mSel);content.appendChild(mFld);
+    const grid=document.createElement("div");Object.assign(grid.style,{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"});
+    const dateFld=mkFld("날짜");const dateI=makeInp({type:"date",value:today()});dateFld.appendChild(dateI);
+    const timeFld=mkFld("시간");const timeI=makeInp({type:"time",value:"10:00"});timeFld.appendChild(timeI);
+    const durFld=mkFld("세션 시간 (분)");const durI=makeInp({type:"number",value:"60"});durFld.appendChild(durI);
+    grid.appendChild(dateFld);grid.appendChild(timeFld);grid.appendChild(durFld);content.appendChild(grid);
+    const saveBtn=mkBtn("일정 추가",async()=>{
+      if(!mSel.value){showToast("회원을 선택해주세요",false);return;}
+      saveBtn.innerHTML=`<span class="spin">⟳</span> 저장 중...`;
+      try{
+        await addDoc2("schedules",{trainerId:uid(),memberId:mSel.value,date:dateI.value,time:timeI.value,duration:+durI.value,status:"예정"});
+        showToast("일정 추가 완료!");document.querySelector(".ov")?.remove();
+      }catch(e){showToast("오류가 발생했습니다",false);saveBtn.textContent="일정 추가";}
+    },"white","lg",{width:"100%"});
+    content.appendChild(saveBtn);
+    mkModal("PT 일정 추가",content);
+  };
+
+  return wrap;
+}
+
+// ════════════════════════════════════════
+// 앱 초기화
+// ════════════════════════════════════════
+window.addEventListener("fb-ready",()=>{
+  FB=window._fb;
+  FB.onAuthStateChanged(FB.auth,async user=>{
+    if(user){
+      STATE.user=user;STATE.role="trainer";STATE.tab="dash";STATE.loading=true;render();
+      await loadAllData();STATE.loading=false;render();
+    }else{
+      if(STATE.role!=="member"){STATE.user=null;STATE.role=null;STATE.loading=false;render();}
+    }
+  });
+});
+
+// 초기 로딩
+renderLoading();
+</script>
+
+</body>
+</html>
