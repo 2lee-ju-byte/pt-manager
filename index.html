@@ -2,832 +2,869 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-<title>PT Manager</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>PT Manager Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{background:#060606;color:#fff;font-family:'Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#f8f8f6;color:#111;font-family:'Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased}
 input,select,textarea,button{font-family:'Noto Sans KR',sans-serif}
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
-::-webkit-scrollbar{width:3px}
-::-webkit-scrollbar-thumb{background:#222;border-radius:9px}
-input::placeholder,textarea::placeholder{color:#333}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#ddd;border-radius:9px}
+input::placeholder,textarea::placeholder{color:#bbb}
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes spin{to{transform:rotate(360deg)}}
-.a0{animation:fadeUp .3s ease both}
-.a1{animation:fadeUp .3s .06s ease both;opacity:0}
+.a0{animation:fadeUp .35s ease both}
+.a1{animation:fadeUp .35s .07s ease both;opacity:0}
+.a2{animation:fadeUp .35s .14s ease both;opacity:0}
 .ov{animation:fadeIn .2s ease both}
 .spin{animation:spin .7s linear infinite;display:inline-block}
 </style>
 </head>
 <body>
 <div id="app">
-  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">
-    <div style="width:30px;height:30px;border:2px solid #222;border-top:2px solid #fff;border-radius:50%;animation:spin .7s linear infinite"></div>
-    <p style="color:#444;font-size:14px">PT Manager 로딩 중...</p>
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#f8f8f6">
+    <div style="width:28px;height:28px;border:2px solid #ddd;border-top:2px solid #111;border-radius:50%;animation:spin .7s linear infinite"></div>
+    <p style="color:#999;font-size:13px">PT Manager 로딩 중...</p>
   </div>
 </div>
 
-<!-- Firebase CDN (compat version - 아이패드에서 안정적) -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-
 <script>
-// ── Firebase 초기화
-const firebaseConfig = {
-  apiKey: "AIzaSyD9b6lVHPflKlUWz4nmNWK0ykBG8nk7BG0",
-  authDomain: "pt-manager-44aff.firebaseapp.com",
-  projectId: "pt-manager-44aff",
-  storageBucket: "pt-manager-44aff.firebasestorage.app",
-  messagingSenderId: "400331343139",
-  appId: "1:400331343139:web:ce3c2c7f2a544752f83896"
+firebase.initializeApp({
+  apiKey:"AIzaSyD9b6lVHPflKlUWz4nmNWK0ykBG8nk7BG0",
+  authDomain:"pt-manager-44aff.firebaseapp.com",
+  projectId:"pt-manager-44aff",
+  storageBucket:"pt-manager-44aff.firebasestorage.app",
+  messagingSenderId:"400331343139",
+  appId:"1:400331343139:web:ce3c2c7f2a544752f83896"
+});
+const auth=firebase.auth();
+const db=firebase.firestore();
+
+/* ── 디자인 토큰 (화이트 테마) */
+const T={
+  bg:"#f8f8f6", surface:"#ffffff", surface2:"#f4f4f2", surface3:"#eeeeec",
+  border:"#e8e8e6", border2:"#ddddd8",
+  text:"#111111", text2:"#555", text3:"#999", text4:"#bbb",
+  accent:"#111111", green:"#16a34a", red:"#dc2626", blue:"#2563eb",
+  greenBg:"#f0fdf4", redBg:"#fef2f2", blueBg:"#eff6ff",
 };
 
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
+/* ── 칼로리 DB */
+const KCAL={닭가슴살:165,현미밥:218,백미밥:300,고구마:131,달걀:78,삶은달걀:78,단백질쉐이크:120,오트밀:370,샐러드:80,연어:208,참치:132,두부:76,브로콜리:34,아보카도:160,바나나:89,사과:52,요거트:100,그릭요거트:59,아몬드:579,견과류:600,우유:61,두유:54,닭볶음탕:180,삼겹살:518,된장찌개:90,김치찌개:75,비빔밥:490,불고기:215,갈비탕:210,삼계탕:250,짜장면:520,짬뽕:450,볶음밥:400,김밥:320,샌드위치:310,식빵:265,떡:350,떡볶이:300,라면:480,우동:400,아메리카노:10,카페라떼:130,카푸치노:110,녹차:2,프로틴바:200,소고기:271,새우:99,고등어:202,계란프라이:90,토스트:265,시리얼:380,치킨:239,피자:266,햄버거:354};
+const findKcal=n=>{if(!n)return null;const s=n.trim().replace(/\s+/g,"").toLowerCase();for(const[k,v]of Object.entries(KCAL))if(s.includes(k)||k.includes(s))return v;return null;};
 
-// ── 디자인 토큰
-const T = {
-  bg:"#060606", surface:"#0e0e0e", surface2:"#141414", surface3:"#1a1a1a",
-  border:"#1e1e1e", border2:"#272727",
-  text:"#fff", text2:"#888", text3:"#444", text4:"#2a2a2a",
-  green:"#5ee89a", red:"#f87171"
-};
+/* ── 앱 상태 */
+const S={role:null,myMemberId:null,tab:"dash",members:[],logs:[],diets:[],schedules:[],resources:[],unsubs:[]};
+const today=()=>new Date().toISOString().slice(0,10);
+const $=id=>document.getElementById(id);
+const uid=()=>auth.currentUser?.uid;
 
-// ── 칼로리 DB
-const KCAL = {
-  닭가슴살:165,현미밥:218,백미밥:300,고구마:131,달걀:78,삶은달걀:78,
-  단백질쉐이크:120,오트밀:370,샐러드:80,연어:208,참치:132,두부:76,
-  브로콜리:34,아보카도:160,바나나:89,사과:52,요거트:100,그릭요거트:59,
-  아몬드:579,견과류:600,우유:61,두유:54,닭볶음탕:180,삼겹살:518,
-  된장찌개:90,김치찌개:75,비빔밥:490,불고기:215,갈비탕:210,삼계탕:250,
-  짜장면:520,짬뽕:450,볶음밥:400,김밥:320,샌드위치:310,식빵:265,
-  떡:350,떡볶이:300,라면:480,우동:400,아메리카노:10,카페라떼:130,
-  카푸치노:110,녹차:2,프로틴바:200,소고기:271,새우:99,고등어:202,
-  계란프라이:90,토스트:265,시리얼:380,치킨:239,피자:266,햄버거:354
-};
+/* ── 공통 UI 빌더 */
+const INP={width:"100%",padding:"11px 14px",background:T.surface,border:`1.5px solid ${T.border2}`,borderRadius:"10px",color:T.text,fontSize:"14px",outline:"none",transition:"border-color .15s"};
 
-function findKcal(n) {
-  if (!n) return null;
-  const s = n.trim().replace(/\s+/g,"").toLowerCase();
-  for (const [k,v] of Object.entries(KCAL)) {
-    if (s.includes(k) || k.includes(s)) return v;
-  }
-  return null;
-}
+function el(tag,style={},html=""){const e=document.createElement(tag);Object.assign(e.style,style);if(html)e.innerHTML=html;return e;}
+function inp(attrs={},sx={}){const i=document.createElement("input");Object.assign(i.style,INP,sx);Object.entries(attrs).forEach(([k,v])=>i.setAttribute(k,v));i.addEventListener("focus",()=>i.style.borderColor=T.accent);i.addEventListener("blur",()=>i.style.borderColor=T.border2);return i;}
+function sel(options,val="",sx={}){const s=document.createElement("select");Object.assign(s.style,{...INP,...sx});options.forEach(o=>{const op=document.createElement("option");op.value=o.v||o;op.textContent=o.l||o;if((o.v||o)===val)op.selected=true;s.appendChild(op);});return s;}
+function ta(ph="",sx={}){const t=document.createElement("textarea");Object.assign(t.style,{...INP,minHeight:"80px",resize:"vertical",...sx});t.placeholder=ph;return t;}
 
-// ── 앱 상태
-const STATE = {
-  role: null, myMemberId: null, tab: "dash",
-  members: [], logs: [], diets: [], schedules: [],
-  unsubs: []
-};
-
-const today = () => new Date().toISOString().slice(0,10);
-const $ = id => document.getElementById(id);
-
-// ── 공통 UI
-const INP = {width:"100%",padding:"12px 14px",background:T.surface2,border:`1px solid ${T.border2}`,borderRadius:"10px",color:T.text,fontSize:"14px",outline:"none"};
-
-function el(tag, style={}, html="") {
-  const e = document.createElement(tag);
-  Object.assign(e.style, style);
-  if (html) e.innerHTML = html;
-  return e;
-}
-
-function inp(attrs={}, sx={}) {
-  const i = document.createElement("input");
-  Object.assign(i.style, INP, sx);
-  Object.entries(attrs).forEach(([k,v]) => i.setAttribute(k,v));
-  return i;
-}
-
-function sel(options, val="", sx={}) {
-  const s = document.createElement("select");
-  Object.assign(s.style, {...INP, ...sx});
-  options.forEach(o => {
-    const op = document.createElement("option");
-    op.value = o.v||o; op.textContent = o.l||o;
-    if ((o.v||o) === val) op.selected = true;
-    s.appendChild(op);
-  });
-  return s;
-}
-
-function ta(ph="", sx={}) {
-  const t = document.createElement("textarea");
-  Object.assign(t.style, {...INP, minHeight:"72px", resize:"vertical", ...sx});
-  t.placeholder = ph;
-  return t;
-}
-
-function btn(text, onClick, v="white", sz="md", sx={}) {
-  const sizes = {sm:{padding:"7px 14px",fontSize:"12px"}, md:{padding:"11px 22px",fontSize:"14px"}, lg:{padding:"15px 26px",fontSize:"15px"}};
-  const vars = {
-    white:{background:"#fff",color:"#000"},
-    ghost:{background:T.surface2,color:T.text2,border:`1px solid ${T.border2}`},
-    outline:{background:"transparent",color:"#fff",border:`1px solid ${T.border2}`}
+function btn(text,onClick,v="dark",sz="md",sx={}){
+  const sizes={sm:{padding:"6px 14px",fontSize:"12px"},md:{padding:"10px 20px",fontSize:"14px"},lg:{padding:"13px 26px",fontSize:"15px"}};
+  const vars={
+    dark:{background:T.accent,color:"#fff",border:"none"},
+    light:{background:T.surface,color:T.text,border:`1.5px solid ${T.border2}`},
+    ghost:{background:T.surface2,color:T.text2,border:`1.5px solid ${T.border}`},
+    danger:{background:"transparent",color:T.red,border:`1.5px solid #fca5a5`},
+    success:{background:T.greenBg,color:T.green,border:`1.5px solid #86efac`},
   };
-  const b = document.createElement("button");
-  Object.assign(b.style, {display:"inline-flex",alignItems:"center",justifyContent:"center",gap:"6px",border:"none",cursor:"pointer",fontWeight:"600",borderRadius:"10px",transition:"all .15s",...vars[v],...sizes[sz],...sx});
-  b.innerHTML = text;
-  b.addEventListener("click", onClick);
+  const b=document.createElement("button");
+  Object.assign(b.style,{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:"6px",cursor:"pointer",fontWeight:"600",borderRadius:"10px",transition:"all .15s",fontFamily:"'Noto Sans KR',sans-serif",...vars[v],...sizes[sz],...sx});
+  b.innerHTML=text;
+  b.addEventListener("click",onClick);
+  b.addEventListener("mouseenter",()=>b.style.opacity="0.85");
+  b.addEventListener("mouseleave",()=>b.style.opacity="1");
   return b;
 }
 
-function card(sx={}) {
-  return el("div", {background:T.surface,border:`1px solid ${T.border}`,borderRadius:"16px",padding:"22px",...sx});
+function card(sx={}){return el("div",{background:T.surface,border:`1.5px solid ${T.border}`,borderRadius:"14px",padding:"20px",...sx});}
+function lbl(text){return el("p",{fontSize:"11px",fontWeight:"700",color:T.text3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"8px"},text);}
+function tag(text,color="gray"){
+  const colors={gray:{bg:T.surface2,color:T.text3,border:T.border},green:{bg:T.greenBg,color:T.green,border:"#86efac"},red:{bg:T.redBg,color:T.red,border:"#fca5a5"},blue:{bg:T.blueBg,color:T.blue,border:"#93c5fd"}};
+  const c=colors[color]||colors.gray;
+  const s=el("span",{fontSize:"11px",fontWeight:"600",background:c.bg,color:c.color,border:`1px solid ${c.border}`,borderRadius:"99px",padding:"3px 10px",whiteSpace:"nowrap"});
+  s.textContent=text;return s;
 }
-
-function lbl(text) {
-  return el("p", {fontSize:"11px",fontWeight:"600",color:T.text3,letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:"7px"}, text);
-}
-
-function tag(text) {
-  const s = document.createElement("span");
-  Object.assign(s.style, {fontSize:"11px",color:T.text3,background:T.surface2,border:`1px solid ${T.border2}`,borderRadius:"99px",padding:"3px 10px",fontWeight:"500",whiteSpace:"nowrap"});
-  s.textContent = text;
-  return s;
-}
-
-function bar(val, max, color="#fff") {
-  const pct = Math.min(Math.round(val/max*100),100);
-  const w = el("div",{background:T.surface3,borderRadius:"99px",height:"5px",overflow:"hidden"});
-  w.appendChild(el("div",{width:`${pct}%`,background:color,height:"100%",borderRadius:"99px",transition:"width .7s"}));
+function bar(val,max,color=T.accent){
+  const pct=Math.min(Math.round(val/max*100),100);
+  const w=el("div",{background:T.surface3,borderRadius:"99px",height:"6px",overflow:"hidden"});
+  w.appendChild(el("div",{width:`${pct}%`,background:color,height:"100%",borderRadius:"99px",transition:"width .7s ease"}));
   return w;
 }
-
-function divider(my=18) {
-  return el("div",{borderTop:`1px solid ${T.border}`,margin:`${my}px 0`});
-}
-
-function stars(val, onChange, size=22) {
-  const w = el("div",{display:"flex",gap:"4px"});
-  [1,2,3,4,5].forEach(n => {
-    const s = el("span",{fontSize:`${size}px`,cursor:onChange?"pointer":"default",opacity:n<=val?"1":"0.15",transition:"opacity .15s"},"★");
-    if (onChange) s.addEventListener("click",()=>onChange(n));
+function divider(my=16){return el("div",{borderTop:`1.5px solid ${T.border}`,margin:`${my}px 0`});}
+function stars(val,onChange,size=20){
+  const w=el("div",{display:"flex",gap:"3px"});
+  [1,2,3,4,5].forEach(n=>{
+    const s=el("span",{fontSize:`${size}px`,cursor:onChange?"pointer":"default",color:n<=val?"#f59e0b":"#e5e7eb",transition:"color .15s"},"★");
+    if(onChange)s.addEventListener("click",()=>onChange(n));
     w.appendChild(s);
   });
   return w;
 }
-
-function fld(label) {
-  const w = el("div",{marginBottom:"14px"});
-  if (label) {
-    const l = el("label",{display:"block",fontSize:"11px",fontWeight:"600",color:T.text3,letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:"7px"});
-    l.textContent = label;
-    w.appendChild(l);
-  }
+function fld(label,sx={}){
+  const w=el("div",{marginBottom:"14px",...sx});
+  if(label){const l=el("label",{display:"block",fontSize:"12px",fontWeight:"700",color:T.text2,marginBottom:"6px"});l.textContent=label;w.appendChild(l);}
   return w;
 }
-
-function modal(title, content, wide=false) {
-  const ov = el("div",{position:"fixed",inset:"0",background:"rgba(0,0,0,.88)",zIndex:"999",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"});
-  ov.className = "ov";
-  ov.addEventListener("click", e => e.target===ov && ov.remove());
-  const box = el("div",{background:T.surface,border:`1px solid ${T.border2}`,borderRadius:"20px",padding:"28px",width:"100%",maxWidth:wide?"560px":"460px",maxHeight:"90vh",overflowY:"auto"});
-  box.className = "a0";
-  const hd = el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"24px"});
-  const ttl = el("h3",{fontFamily:"'Playfair Display',serif",fontSize:"21px",color:T.text},title);
-  const cls = btn("×",()=>ov.remove(),"ghost","sm",{width:"34px",height:"34px",borderRadius:"8px"});
-  hd.appendChild(ttl); hd.appendChild(cls);
-  box.appendChild(hd); box.appendChild(content);
-  ov.appendChild(box); document.body.appendChild(ov);
-  return ov;
+function modal(title,content,wide=false){
+  const ov=el("div",{position:"fixed",inset:"0",background:"rgba(0,0,0,.4)",zIndex:"999",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"});
+  ov.className="ov";
+  ov.addEventListener("click",e=>e.target===ov&&ov.remove());
+  const box=el("div",{background:T.surface,borderRadius:"18px",padding:"28px",width:"100%",maxWidth:wide?"560px":"460px",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.15)"});
+  box.className="a0";
+  const hd=el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"22px"});
+  const ttl=el("h3",{fontFamily:"'Noto Serif KR',serif",fontSize:"20px",fontWeight:"700",color:T.text},title);
+  const cls=btn("×",()=>ov.remove(),"ghost","sm",{width:"32px",height:"32px",borderRadius:"8px",padding:"0"});
+  hd.appendChild(ttl);hd.appendChild(cls);box.appendChild(hd);box.appendChild(content);
+  ov.appendChild(box);document.body.appendChild(ov);return ov;
+}
+function toast(msg,ok=true){
+  const t=el("div",{position:"fixed",bottom:"90px",left:"50%",transform:"translateX(-50%)",background:ok?"#111":"#dc2626",color:"#fff",borderRadius:"99px",padding:"10px 20px",fontSize:"13px",fontWeight:"600",zIndex:"9999",whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,.2)"},msg);
+  document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
+}
+function pageHdr(sub,title,action=null){
+  const w=el("div",{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:"24px"});
+  const left=el("div",{});
+  left.appendChild(el("p",{fontSize:"11px",color:T.text3,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"4px"},sub));
+  left.appendChild(el("h2",{fontFamily:"'Noto Serif KR',serif",fontSize:"26px",fontWeight:"700",color:T.text},title));
+  w.appendChild(left);if(action)w.appendChild(action);return w;
 }
 
-function toast(msg, ok=true) {
-  const t = el("div",{position:"fixed",bottom:"100px",left:"50%",transform:"translateX(-50%)",background:ok?"#1a3a2a":"#3a1a1a",color:ok?T.green:T.red,border:`1px solid ${ok?"#2a5a3a":"#5a2a2a"}`,borderRadius:"99px",padding:"10px 20px",fontSize:"13px",fontWeight:"600",zIndex:"9999",whiteSpace:"nowrap"},msg);
-  document.body.appendChild(t);
-  setTimeout(()=>t.remove(),2500);
-}
+/* ── Firebase CRUD */
+const addDoc2=async(col,data)=>db.collection(col).add({...data,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+const updateDoc2=async(col,id,data)=>db.collection(col).doc(id).update(data);
+const setDoc2=async(col,id,data)=>db.collection(col).doc(id).set(data,{merge:true});
 
-function pageHdr(eyebrow, title, action=null) {
-  const w = el("div",{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:"28px"});
-  const left = el("div",{});
-  left.appendChild(el("p",{fontSize:"11px",color:T.text3,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:"6px"},eyebrow));
-  left.appendChild(el("h2",{fontFamily:"'Playfair Display',serif",fontSize:"30px",color:T.text},title));
-  w.appendChild(left);
-  if (action) w.appendChild(action);
-  return w;
-}
-
-// ── Firebase CRUD
-async function addDoc2(col, data) {
-  return db.collection(col).add({...data, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
-}
-
-async function updateDoc2(col, id, data) {
-  return db.collection(col).doc(id).update(data);
-}
-
-async function setDoc2(col, id, data) {
-  return db.collection(col).doc(id).set(data, {merge:true});
-}
-
-function uid() { return auth.currentUser?.uid; }
-
-// ── 데이터 로드
-function loadTrainerData() {
-  STATE.unsubs.forEach(u=>u()); STATE.unsubs=[];
-  const tid = uid();
-  STATE.unsubs.push(
-    db.collection("members").where("trainerId","==",tid).onSnapshot(snap=>{STATE.members=snap.docs.map(d=>({id:d.id,...d.data()}));render();}),
-    db.collection("logs").where("trainerId","==",tid).onSnapshot(snap=>{STATE.logs=snap.docs.map(d=>({id:d.id,...d.data()}));render();}),
-    db.collection("diets").where("trainerId","==",tid).onSnapshot(snap=>{STATE.diets=snap.docs.map(d=>({id:d.id,...d.data()}));render();}),
-    db.collection("schedules").where("trainerId","==",tid).onSnapshot(snap=>{STATE.schedules=snap.docs.map(d=>({id:d.id,...d.data()}));render();})
+function loadTrainerData(){
+  S.unsubs.forEach(u=>u());S.unsubs=[];
+  const tid=uid();
+  S.unsubs.push(
+    db.collection("members").where("trainerId","==",tid).onSnapshot(snap=>{S.members=snap.docs.map(d=>({id:d.id,...d.data()}));render();}),
+    db.collection("logs").where("trainerId","==",tid).onSnapshot(snap=>{S.logs=snap.docs.map(d=>({id:d.id,...d.data()}));render();}),
+    db.collection("diets").where("trainerId","==",tid).onSnapshot(snap=>{S.diets=snap.docs.map(d=>({id:d.id,...d.data()}));render();}),
+    db.collection("schedules").where("trainerId","==",tid).onSnapshot(snap=>{S.schedules=snap.docs.map(d=>({id:d.id,...d.data()}));render();}),
+    db.collection("resources").where("trainerId","==",tid).onSnapshot(snap=>{S.resources=snap.docs.map(d=>({id:d.id,...d.data()}));render();})
   );
 }
 
-async function loadMemberData(memberId) {
-  STATE.unsubs.forEach(u=>u()); STATE.unsubs=[];
-  const me = await db.collection("members").doc(memberId).get();
-  if (me.exists) STATE.members = [{id:me.id,...me.data()}];
-  STATE.unsubs.push(
-    db.collection("logs").where("memberId","==",memberId).onSnapshot(snap=>{STATE.logs=snap.docs.map(d=>({id:d.id,...d.data()}));render();}),
-    db.collection("diets").where("memberId","==",memberId).onSnapshot(snap=>{STATE.diets=snap.docs.map(d=>({id:d.id,...d.data()}));render();}),
-    db.collection("schedules").where("memberId","==",memberId).onSnapshot(snap=>{STATE.schedules=snap.docs.map(d=>({id:d.id,...d.data()}));render();})
+async function loadMemberData(memberId){
+  S.unsubs.forEach(u=>u());S.unsubs=[];
+  const me=await db.collection("members").doc(memberId).get();
+  if(me.exists)S.members=[{id:me.id,...me.data()}];
+  S.unsubs.push(
+    db.collection("logs").where("memberId","==",memberId).onSnapshot(snap=>{S.logs=snap.docs.map(d=>({id:d.id,...d.data()}));render();}),
+    db.collection("diets").where("memberId","==",memberId).onSnapshot(snap=>{S.diets=snap.docs.map(d=>({id:d.id,...d.data()}));render();}),
+    db.collection("schedules").where("memberId","==",memberId).onSnapshot(snap=>{S.schedules=snap.docs.map(d=>({id:d.id,...d.data()}));render();}),
+    db.collection("resources").where("trainerId","==",S.members[0]?.trainerId).onSnapshot(snap=>{S.resources=snap.docs.map(d=>({id:d.id,...d.data()}));render();})
   );
 }
 
-// ════════════════════════════════
-// 로그인 화면
-// ════════════════════════════════
-function renderAuth() {
-  const root = $("app"); root.innerHTML = "";
-  const wrap = el("div",{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:"24px"});
-  const box = el("div",{width:"100%",maxWidth:"400px"});
-  box.className = "a0";
+/* ══════════════════════════════════════
+   랜딩 / 가이드 화면
+══════════════════════════════════════ */
+function renderLanding(){
+  const root=$("app");root.innerHTML="";
+  const wrap=el("div",{minHeight:"100vh",background:T.bg});
 
-  // 로고
-  const logo = el("div",{textAlign:"center",marginBottom:"40px"});
-  logo.innerHTML = `
-    <div style="width:56px;height:56px;background:#fff;border-radius:14px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:24px">◼</div>
-    <p style="font-size:11px;color:${T.text3};letter-spacing:0.18em;text-transform:uppercase;margin-bottom:8px">Personal Training</p>
-    <h1 style="font-family:'Playfair Display',serif;font-size:36px;font-weight:700;color:#fff;line-height:1.1">PT Manager</h1>
-    <p style="font-size:13px;color:${T.text3};margin-top:10px">스마트 트레이닝 관리 시스템</p>
+  /* 상단 헤더 */
+  const hdr=el("div",{background:T.surface,borderBottom:`1.5px solid ${T.border}`,padding:"14px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:"0",zIndex:"100"});
+  hdr.innerHTML=`<div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;background:#111;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:700">P</div><span style="font-family:'Noto Serif KR',serif;font-size:17px;font-weight:700;color:${T.text}">PT Manager Pro</span></div>`;
+  const hBtns=el("div",{display:"flex",gap:"8px"});
+  hBtns.appendChild(btn("로그인",()=>showAuthModal("login"),"light","sm"));
+  hBtns.appendChild(btn("시작하기",()=>showAuthModal("signup"),"dark","sm"));
+  hdr.appendChild(hBtns);wrap.appendChild(hdr);
+
+  /* 히어로 */
+  const hero=el("div",{padding:"60px 24px 40px",maxWidth:"680px",margin:"0 auto",textAlign:"center"});
+  hero.className="a0";
+  hero.innerHTML=`
+    <div style="display:inline-block;background:${T.surface2};border:1.5px solid ${T.border};border-radius:99px;padding:6px 16px;font-size:12px;font-weight:600;color:${T.text3};margin-bottom:20px;letter-spacing:0.05em">🏋️ 트레이너 전용 관리 시스템</div>
+    <h1 style="font-family:'Noto Serif KR',serif;font-size:36px;font-weight:700;color:${T.text};line-height:1.3;margin-bottom:16px">회원 관리의 모든 것<br>한 곳에서 해결하세요</h1>
+    <p style="font-size:16px;color:${T.text2};line-height:1.7;margin-bottom:32px">운동일지, 식단 기록, 체중 변화, PT 잔여 횟수까지<br>트레이너와 회원이 실시간으로 함께 관리합니다.</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      ${btn("지금 무료로 시작하기",()=>showAuthModal("signup"),"dark","lg",{fontSize:"15px"}).outerHTML.replace('</button>','')}시작하기</button>
+      ${btn("로그인",()=>showAuthModal("login"),"light","lg").outerHTML}
+    </div>
   `;
+  // 버튼 이벤트 재연결
+  wrap.appendChild(hero);
+  setTimeout(()=>{
+    const btns=hero.querySelectorAll("button");
+    if(btns[0])btns[0].addEventListener("click",()=>showAuthModal("signup"));
+    if(btns[1])btns[1].addEventListener("click",()=>showAuthModal("login"));
+  },0);
 
-  // 탭
-  let mode = "login";
-  const tabWrap = el("div",{display:"flex",gap:"8px",marginBottom:"24px"});
-  const mkTab = (label, m) => {
-    const b = document.createElement("button");
-    Object.assign(b.style,{flex:"1",padding:"10px",borderRadius:"10px",border:"none",cursor:"pointer",fontSize:"12px",fontWeight:"600",transition:"all .15s"});
-    b.textContent = label; b.dataset.m = m;
-    return b;
+  /* 기능 소개 */
+  const features=[
+    {icon:"📊",title:"대시보드",desc:"오늘 일정과 PT 진행률을 한눈에 확인"},
+    {icon:"👥",title:"회원 관리",desc:"신체 정보, 잔여 횟수, 체중 변화 추적"},
+    {icon:"📋",title:"운동일지",desc:"세트·횟수·무게 기록 및 볼륨 자동 계산"},
+    {icon:"🥗",title:"식단 기록",desc:"AI 칼로리 자동계산, 수분·커피 추적"},
+    {icon:"⭐",title:"식단 피드백",desc:"트레이너가 별점과 코멘트로 피드백"},
+    {icon:"📚",title:"자료 배포",desc:"운동 가이드, PDF 자료를 회원과 공유"},
+  ];
+  const fg=el("div",{padding:"0 24px 40px",maxWidth:"680px",margin:"0 auto"});
+  fg.className="a1";
+  fg.appendChild(el("h2",{fontFamily:"'Noto Serif KR',serif",fontSize:"22px",fontWeight:"700",color:T.text,marginBottom:"20px",textAlign:"center"},"주요 기능"));
+  const grid=el("div",{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"12px"});
+  features.forEach(f=>{
+    const c=card({padding:"18px"});
+    c.innerHTML=`<div style="font-size:28px;margin-bottom:10px">${f.icon}</div><p style="font-size:15px;font-weight:700;color:${T.text};margin-bottom:5px">${f.title}</p><p style="font-size:13px;color:${T.text2};line-height:1.6">${f.desc}</p>`;
+    grid.appendChild(c);
+  });
+  fg.appendChild(grid);wrap.appendChild(fg);
+
+  /* 시작 가이드 */
+  const guide=el("div",{padding:"0 24px 40px",maxWidth:"680px",margin:"0 auto"});
+  guide.className="a2";
+  guide.appendChild(el("h2",{fontFamily:"'Noto Serif KR',serif",fontSize:"22px",fontWeight:"700",color:T.text,marginBottom:"20px",textAlign:"center"},"이렇게 시작하세요"));
+  const steps=[
+    {n:"1",title:"트레이너 계정 만들기",desc:"'시작하기' 버튼을 눌러 이름, 이메일, 비밀번호로 가입하세요."},
+    {n:"2",title:"회원 등록하기",desc:"회원 탭에서 신규 등록 → 이름, 신체 정보, PT 횟수를 입력하고 임시 비밀번호를 설정해주세요."},
+    {n:"3",title:"회원에게 링크 공유",desc:"이 페이지 주소를 카톡으로 공유하세요. 회원은 '회원 입장'에서 이메일과 비밀번호로 로그인합니다."},
+    {n:"4",title:"실시간 관리 시작",desc:"회원이 체중·식단·운동을 기록하면 트레이너 대시보드에 실시간으로 반영됩니다."},
+  ];
+  steps.forEach((s,i)=>{
+    const row=el("div",{display:"flex",gap:"16px",marginBottom:"16px",alignItems:"flex-start"});
+    const num=el("div",{width:"36px",height:"36px",minWidth:"36px",background:T.accent,color:"#fff",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"700",fontSize:"16px"},s.n);
+    const text=el("div",{paddingTop:"6px"});
+    text.appendChild(el("p",{fontSize:"15px",fontWeight:"700",color:T.text,marginBottom:"4px"},s.title));
+    text.appendChild(el("p",{fontSize:"13px",color:T.text2,lineHeight:"1.6"},s.desc));
+    row.appendChild(num);row.appendChild(text);guide.appendChild(row);
+    if(i<steps.length-1)guide.appendChild(divider(8));
+  });
+  wrap.appendChild(guide);
+
+  /* CTA */
+  const cta=el("div",{padding:"40px 24px 80px",maxWidth:"680px",margin:"0 auto",textAlign:"center"});
+  const ctaBox=el("div",{background:T.accent,borderRadius:"18px",padding:"40px 24px"});
+  ctaBox.innerHTML=`<h2 style="font-family:'Noto Serif KR',serif;font-size:24px;font-weight:700;color:#fff;margin-bottom:10px">지금 바로 시작해보세요</h2><p style="font-size:14px;color:rgba(255,255,255,.7);margin-bottom:24px">무료로 사용할 수 있습니다</p>`;
+  const ctaBtn=btn("무료로 시작하기",()=>showAuthModal("signup"),"light","lg",{fontSize:"15px"});
+  ctaBox.appendChild(ctaBtn);cta.appendChild(ctaBox);wrap.appendChild(cta);
+
+  $("app").appendChild(wrap);
+}
+
+/* ── 인증 모달 */
+function showAuthModal(defaultMode="login"){
+  const cnt=el("div",{});
+  let mode=defaultMode;
+
+  /* 탭 */
+  const tabWrap=el("div",{display:"flex",gap:"8px",marginBottom:"22px"});
+  const tabs=[
+    {m:"login",l:"트레이너 로그인"},
+    {m:"signup",l:"트레이너 가입"},
+    {m:"member",l:"회원 입장"},
+  ];
+  const updateTabs=()=>tabBtns.forEach(({b,m})=>Object.assign(b.style,{background:m===mode?T.accent:T.surface2,color:m===mode?"#fff":T.text2,border:m===mode?"none":`1.5px solid ${T.border}`}));
+  const tabBtns=tabs.map(t=>{
+    const b=document.createElement("button");
+    Object.assign(b.style,{flex:"1",padding:"9px 4px",borderRadius:"10px",border:"none",cursor:"pointer",fontSize:"11px",fontWeight:"700",transition:"all .15s",fontFamily:"'Noto Sans KR',sans-serif"});
+    b.textContent=t.l;b.addEventListener("click",()=>{mode=t.m;updateTabs();updateForm();});
+    tabWrap.appendChild(b);return{b,m:t.m};
+  });
+  updateTabs();cnt.appendChild(tabWrap);
+
+  const formArea=el("div",{});cnt.appendChild(formArea);
+
+  /* 로그인 */
+  const loginForm=()=>{
+    const w=el("div",{});
+    const ef=fld("이메일");const ei=inp({type:"email",placeholder:"trainer@email.com"});ef.appendChild(ei);
+    const pf=fld("비밀번호");const pi=inp({type:"password",placeholder:"••••••••"});pf.appendChild(pi);
+    const err=el("p",{color:T.red,fontSize:"13px",marginBottom:"12px",minHeight:"18px"},"");
+    const lb=btn("로그인",async()=>{
+      err.textContent="";lb.innerHTML=`<span class="spin">⟳</span> 로그인 중...`;
+      try{await auth.signInWithEmailAndPassword(ei.value.trim(),pi.value);document.querySelector(".ov")?.remove();}
+      catch(e){err.textContent="이메일 또는 비밀번호를 확인해주세요.";lb.textContent="로그인";}
+    },"dark","lg",{width:"100%"});
+    w.appendChild(ef);w.appendChild(pf);w.appendChild(err);w.appendChild(lb);return w;
   };
-  const tabBtns = [mkTab("트레이너 로그인","login"), mkTab("트레이너 가입","signup"), mkTab("회원 입장","member")];
-  const updateTabs = () => tabBtns.forEach(t => Object.assign(t.style,{background:t.dataset.m===mode?"#fff":T.surface2,color:t.dataset.m===mode?"#000":T.text3,border:t.dataset.m===mode?"none":`1px solid ${T.border2}`}));
-  tabBtns.forEach(t => { tabWrap.appendChild(t); t.addEventListener("click",()=>{mode=t.dataset.m;updateTabs();updateForm();}); });
-  updateTabs();
 
-  const formArea = el("div",{});
-
-  // 로그인 폼
-  const loginForm = () => {
-    const w = el("div",{});
-    const ef = fld("이메일"); const ei = inp({type:"email",placeholder:"trainer@email.com"}); ef.appendChild(ei);
-    const pf = fld("비밀번호"); const pi = inp({type:"password",placeholder:"••••••••"}); pf.appendChild(pi);
-    const err = el("p",{color:T.red,fontSize:"13px",marginBottom:"12px",textAlign:"center",minHeight:"18px"},"");
-    const lb = btn("로그인", async()=>{
-      err.textContent=""; lb.innerHTML=`<span class="spin">⟳</span> 로그인 중...`;
-      try { await auth.signInWithEmailAndPassword(ei.value, pi.value); }
-      catch(e) { err.textContent="이메일 또는 비밀번호를 확인해주세요."; lb.textContent="로그인"; }
-    },"white","lg",{width:"100%"});
-    w.appendChild(ef); w.appendChild(pf); w.appendChild(err); w.appendChild(lb);
-    return w;
-  };
-
-  // 가입 폼
-  const signupForm = () => {
-    const w = el("div",{});
-    const nf = fld("트레이너 이름"); const ni = inp({type:"text",placeholder:"홍길동 트레이너"}); nf.appendChild(ni);
-    const ef = fld("이메일"); const ei = inp({type:"email",placeholder:"trainer@email.com"}); ef.appendChild(ei);
-    const pf = fld("비밀번호 (6자리 이상)"); const pi = inp({type:"password",placeholder:"••••••••"}); pf.appendChild(pi);
-    const err = el("p",{color:T.red,fontSize:"13px",marginBottom:"12px",textAlign:"center",minHeight:"18px"},"");
-    const sb = btn("계정 만들기", async()=>{
+  /* 회원가입 */
+  const signupForm=()=>{
+    const w=el("div",{});
+    const nf=fld("트레이너 이름");const ni=inp({type:"text",placeholder:"홍길동 트레이너"});nf.appendChild(ni);
+    const ef=fld("이메일");const ei=inp({type:"email",placeholder:"trainer@email.com"});ef.appendChild(ei);
+    const pf=fld("비밀번호 (6자리 이상)");const pi=inp({type:"password",placeholder:"••••••••"});pf.appendChild(pi);
+    const err=el("p",{color:T.red,fontSize:"13px",marginBottom:"12px",minHeight:"18px"},"");
+    const sb=btn("계정 만들기",async()=>{
       err.textContent="";
-      if (!ni.value) { err.textContent="이름을 입력해주세요."; return; }
-      if (pi.value.length<6) { err.textContent="비밀번호는 6자리 이상이어야 합니다."; return; }
+      if(!ni.value.trim()){err.textContent="이름을 입력해주세요.";return;}
+      if(pi.value.length<6){err.textContent="비밀번호는 6자리 이상이어야 합니다.";return;}
       sb.innerHTML=`<span class="spin">⟳</span> 생성 중...`;
-      try {
-        const cred = await auth.createUserWithEmailAndPassword(ei.value, pi.value);
-        await cred.user.updateProfile({displayName: ni.value});
-        await setDoc2("trainers", cred.user.uid, {name:ni.value, email:ei.value, createdAt:new Date().toISOString()});
-        toast("가입 완료! 환영합니다 💪");
-      } catch(e) {
-        const msgs = {"auth/email-already-in-use":"이미 사용중인 이메일입니다.","auth/invalid-email":"이메일 형식이 올바르지 않습니다."};
-        err.textContent = msgs[e.code]||"오류가 발생했습니다.";
-        sb.textContent = "계정 만들기";
+      try{
+        const cred=await auth.createUserWithEmailAndPassword(ei.value.trim(),pi.value);
+        await cred.user.updateProfile({displayName:ni.value.trim()});
+        await setDoc2("trainers",cred.user.uid,{name:ni.value.trim(),email:ei.value.trim(),createdAt:new Date().toISOString()});
+        document.querySelector(".ov")?.remove();toast("가입 완료! 환영합니다 💪");
+      }catch(e){
+        const msgs={"auth/email-already-in-use":"이미 사용중인 이메일입니다.","auth/invalid-email":"이메일 형식이 올바르지 않습니다."};
+        err.textContent=msgs[e.code]||"오류가 발생했습니다.";sb.textContent="계정 만들기";
       }
-    },"white","lg",{width:"100%"});
-    w.appendChild(nf); w.appendChild(ef); w.appendChild(pf); w.appendChild(err); w.appendChild(sb);
-    return w;
+    },"dark","lg",{width:"100%"});
+    w.appendChild(nf);w.appendChild(ef);w.appendChild(pf);w.appendChild(err);w.appendChild(sb);return w;
   };
 
-  // 회원 폼
-  const memberForm = () => {
-    const w = el("div",{});
-    const tf = fld("트레이너 이메일"); const ti = inp({type:"email",placeholder:"트레이너 이메일 입력"}); tf.appendChild(ti);
-    const sb = btn("회원 목록 불러오기",()=>{},"outline","md",{width:"100%",marginBottom:"14px"});
-    const mArea = el("div",{});
-    const err = el("p",{color:T.red,fontSize:"13px",marginBottom:"12px",textAlign:"center",minHeight:"18px"},"");
-
-    sb.addEventListener("click", async()=>{
-      err.textContent=""; mArea.innerHTML="";
-      sb.innerHTML=`<span class="spin">⟳</span> 검색 중...`;
-      try {
-        const tSnap = await db.collection("trainers").where("email","==",ti.value.trim()).get();
-        if (tSnap.empty) { err.textContent="트레이너를 찾을 수 없습니다."; sb.textContent="회원 목록 불러오기"; return; }
-        const tid = tSnap.docs[0].id;
-        const mSnap = await db.collection("members").where("trainerId","==",tid).get();
-        if (mSnap.empty) { err.textContent="등록된 회원이 없습니다."; sb.textContent="회원 목록 불러오기"; return; }
-
-        const mf = fld("회원 선택");
-        const ms = sel([{v:"",l:"이름을 선택하세요"},...mSnap.docs.map(d=>({v:d.id,l:d.data().name}))]);
-        mf.appendChild(ms); mArea.appendChild(mf);
-
-        const eb = btn("입장하기",async()=>{
-          if (!ms.value) { err.textContent="회원을 선택해주세요."; return; }
-          STATE.role="member"; STATE.myMemberId=ms.value; STATE.tab="workout";
-          await loadMemberData(ms.value); render();
-        },"white","lg",{width:"100%"});
-        mArea.appendChild(eb);
-        sb.textContent="회원 목록 불러오기";
-      } catch(e) { err.textContent="오류가 발생했습니다."; sb.textContent="회원 목록 불러오기"; }
-    });
-
-    w.appendChild(tf); w.appendChild(sb); w.appendChild(err); w.appendChild(mArea);
-    return w;
+  /* 회원 입장 - 이메일/비밀번호 로그인 */
+  const memberForm=()=>{
+    const w=el("div",{});
+    const info=el("div",{background:T.blueBg,border:`1px solid #93c5fd`,borderRadius:"10px",padding:"12px 14px",marginBottom:"16px"});
+    info.innerHTML=`<p style="font-size:13px;color:${T.blue};line-height:1.6">💡 트레이너에게 받은 <b>이메일</b>과 <b>비밀번호</b>로 로그인하세요.</p>`;
+    const ef=fld("이메일");const ei=inp({type:"email",placeholder:"member@email.com"});ef.appendChild(ei);
+    const pf=fld("비밀번호");const pi=inp({type:"password",placeholder:"트레이너에게 받은 비밀번호"});pf.appendChild(pi);
+    const err=el("p",{color:T.red,fontSize:"13px",marginBottom:"12px",minHeight:"18px"},"");
+    const lb=btn("입장하기",async()=>{
+      err.textContent="";lb.innerHTML=`<span class="spin">⟳</span> 로그인 중...`;
+      try{
+        // 회원 계정으로 로그인
+        const cred=await auth.signInWithEmailAndPassword(ei.value.trim(),pi.value);
+        // 회원 정보 조회
+        const mSnap=await db.collection("members").where("email","==",ei.value.trim()).get();
+        if(mSnap.empty){await auth.signOut();err.textContent="회원 정보를 찾을 수 없습니다. 트레이너에게 문의하세요.";lb.textContent="입장하기";return;}
+        const memberId=mSnap.docs[0].id;
+        S.role="member";S.myMemberId=memberId;S.tab="workout";
+        await loadMemberData(memberId);
+        document.querySelector(".ov")?.remove();render();
+      }catch(e){
+        err.textContent="이메일 또는 비밀번호를 확인해주세요.";lb.textContent="입장하기";
+      }
+    },"dark","lg",{width:"100%"});
+    w.appendChild(info);w.appendChild(ef);w.appendChild(pf);w.appendChild(err);w.appendChild(lb);return w;
   };
 
-  const updateForm = () => {
+  const updateForm=()=>{
     formArea.innerHTML="";
-    if (mode==="login") formArea.appendChild(loginForm());
-    else if (mode==="signup") formArea.appendChild(signupForm());
+    if(mode==="login")formArea.appendChild(loginForm());
+    else if(mode==="signup")formArea.appendChild(signupForm());
     else formArea.appendChild(memberForm());
   };
   updateForm();
-
-  box.appendChild(logo); box.appendChild(tabWrap); box.appendChild(formArea);
-  wrap.appendChild(box); root.appendChild(wrap);
+  modal("PT Manager Pro 로그인",cnt);
 }
 
-// ════════════════════════════════
-// 메인 렌더
-// ════════════════════════════════
-function render() {
-  if (!STATE.role) { renderAuth(); return; }
-  const root = $("app"); root.innerHTML="";
-  const isT = STATE.role==="trainer";
-  const myMember = STATE.members.find(x=>x.id===STATE.myMemberId);
+/* ══════════════════════════════════════
+   메인 렌더
+══════════════════════════════════════ */
+function render(){
+  if(!S.role){renderLanding();return;}
+  const root=$("app");root.innerHTML="";
+  const isT=S.role==="trainer";
+  const myMember=S.members.find(x=>x.id===S.myMemberId);
 
-  // 헤더
-  const hdr = el("div",{background:T.bg,borderBottom:`1px solid ${T.border}`,padding:"13px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:"0",zIndex:"200"});
-  hdr.innerHTML = `<div style="display:flex;align-items:center;gap:11px"><div style="width:32px;height:32px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px">◼</div><div><p style="font-family:'Playfair Display',serif;font-size:15px;color:#fff;line-height:1.1">PT Manager</p><p style="font-size:10px;color:${T.text3};margin-top:1px">${isT?(auth.currentUser?.displayName||"트레이너")+" · TRAINER":(myMember?.name||"")+" · MEMBER"}</p></div></div>`;
-  hdr.appendChild(btn("로그아웃", async()=>{
-    STATE.unsubs.forEach(u=>u()); STATE.unsubs=[];
-    if (isT) { await auth.signOut(); }
-    else { STATE.role=null; STATE.myMemberId=null; STATE.members=[]; STATE.logs=[]; STATE.diets=[]; STATE.schedules=[]; render(); }
+  /* 헤더 */
+  const hdr=el("div",{background:T.surface,borderBottom:`1.5px solid ${T.border}`,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:"0",zIndex:"200"});
+  const hl=el("div",{display:"flex",alignItems:"center",gap:"10px"});
+  hl.innerHTML=`<div style="width:32px;height:32px;background:#111;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:700">P</div><div><p style="font-family:'Noto Serif KR',serif;font-size:15px;font-weight:700;color:${T.text};line-height:1.1">PT Manager</p><p style="font-size:10px;color:${T.text3};margin-top:1px">${isT?(auth.currentUser?.displayName||"트레이너")+" · 트레이너":(myMember?.name||"")+" · 회원"}</p></div>`;
+  hdr.appendChild(hl);
+  hdr.appendChild(btn("로그아웃",async()=>{
+    S.unsubs.forEach(u=>u());S.unsubs=[];
+    if(isT){await auth.signOut();}
+    else{S.role=null;S.myMemberId=null;S.members=[];S.logs=[];S.diets=[];S.schedules=[];S.resources=[];render();}
   },"ghost","sm"));
 
-  // 콘텐츠
-  const content = el("div",{padding:"28px 18px 110px",maxWidth:"600px",margin:"0 auto"});
+  const content=el("div",{padding:"24px 18px 100px",maxWidth:"600px",margin:"0 auto"});
   content.className="a0";
 
-  if (STATE.tab==="dash"&&isT) content.appendChild(renderDash());
-  else if (STATE.tab==="members"&&isT) content.appendChild(renderMembers());
-  else if (STATE.tab==="workout") content.appendChild(renderWorkout());
-  else if (STATE.tab==="diet_review"&&isT) content.appendChild(renderDietReview());
-  else if (STATE.tab==="diet"&&!isT) content.appendChild(renderDietMember());
-  else if (STATE.tab==="weight"&&!isT) content.appendChild(renderWeight());
-  else if (STATE.tab==="schedule") content.appendChild(renderSchedule());
+  /* 탭 콘텐츠 */
+  const TRAINER_TABS=[{id:"dash",l:"홈"},{id:"members",l:"회원"},{id:"workout",l:"운동"},{id:"diet_review",l:"식단"},{id:"schedule",l:"일정"},{id:"resources",l:"자료"}];
+  const MEMBER_TABS=[{id:"workout",l:"운동일지"},{id:"diet",l:"식단"},{id:"weight",l:"체중"},{id:"schedule",l:"일정"},{id:"resources",l:"자료"}];
+  const tabs=isT?TRAINER_TABS:MEMBER_TABS;
 
-  // 탭바
-  const TABS = isT
-    ? [{id:"dash",l:"홈"},{id:"members",l:"회원"},{id:"workout",l:"운동"},{id:"diet_review",l:"식단"},{id:"schedule",l:"일정"}]
-    : [{id:"workout",l:"운동일지"},{id:"diet",l:"식단"},{id:"weight",l:"체중"},{id:"schedule",l:"일정"}];
-  const tabBar = el("div",{position:"fixed",bottom:"0",left:"0",right:"0",background:T.bg,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"space-around",padding:"10px 0 max(10px,env(safe-area-inset-bottom))",zIndex:"200"});
-  TABS.forEach(t => {
-    const b = el("div",{cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"5px",padding:"4px 16px",position:"relative"});
-    if (STATE.tab===t.id) b.appendChild(el("div",{position:"absolute",top:"-1px",left:"50%",transform:"translateX(-50%)",width:"20px",height:"2px",background:"#fff",borderRadius:"99px"}));
-    b.appendChild(el("span",{fontSize:"12px",fontWeight:STATE.tab===t.id?"700":"400",color:STATE.tab===t.id?T.text:T.text3},t.l));
-    b.addEventListener("click",()=>{STATE.tab=t.id;render();});
+  if(S.tab==="dash"&&isT)content.appendChild(renderDash());
+  else if(S.tab==="members"&&isT)content.appendChild(renderMembers());
+  else if(S.tab==="workout")content.appendChild(renderWorkout());
+  else if(S.tab==="diet_review"&&isT)content.appendChild(renderDietReview());
+  else if(S.tab==="diet"&&!isT)content.appendChild(renderDietMember());
+  else if(S.tab==="weight"&&!isT)content.appendChild(renderWeight());
+  else if(S.tab==="schedule")content.appendChild(renderSchedule());
+  else if(S.tab==="resources")content.appendChild(renderResources());
+
+  /* 탭바 */
+  const tabBar=el("div",{position:"fixed",bottom:"0",left:"0",right:"0",background:T.surface,borderTop:`1.5px solid ${T.border}`,display:"flex",justifyContent:"space-around",padding:"8px 0 max(8px,env(safe-area-inset-bottom))",zIndex:"200"});
+  tabs.forEach(t=>{
+    const b=el("div",{cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"4px",padding:"4px 12px",position:"relative"});
+    if(S.tab===t.id){const bar=el("div",{position:"absolute",top:"-1px",left:"50%",transform:"translateX(-50%)",width:"20px",height:"2.5px",background:T.accent,borderRadius:"99px"});b.appendChild(bar);}
+    b.appendChild(el("span",{fontSize:"12px",fontWeight:S.tab===t.id?"700":"500",color:S.tab===t.id?T.accent:T.text3},t.l));
+    b.addEventListener("click",()=>{S.tab=t.id;render();});
     tabBar.appendChild(b);
   });
 
-  root.appendChild(hdr); root.appendChild(content); root.appendChild(tabBar);
+  root.appendChild(hdr);root.appendChild(content);root.appendChild(tabBar);
 }
 
-// ── 대시보드
-function renderDash() {
-  const wrap = el("div",{});
-  wrap.appendChild(el("div",{marginBottom:"28px"},`<p style="font-size:11px;color:${T.text3};letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px">Dashboard</p><h2 style="font-family:'Playfair Display',serif;font-size:30px;color:${T.text}">오늘의 현황</h2><p style="font-size:13px;color:${T.text3};margin-top:5px">${new Date().toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"long"})}</p>`));
+/* ── 대시보드 */
+function renderDash(){
+  const wrap=el("div",{});
+  const now=new Date();
+  const dateStr=now.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"long"});
 
-  // PT 진행률
-  const pc = card({marginBottom:"14px"});
-  const ph = el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"22px"});
-  ph.appendChild(lbl("PT 진행률")); ph.appendChild(tag(`${STATE.members.length}명`)); pc.appendChild(ph);
-  if (!STATE.members.length) pc.appendChild(el("p",{color:T.text4,fontSize:"14px",textAlign:"center",padding:"20px 0"},"등록된 회원이 없습니다"));
-  else STATE.members.forEach((m,i) => {
-    const rem = m.sessions-m.used, pct = Math.round(m.used/m.sessions*100);
-    const wLog = m.weightLog||[], diff = wLog.length>=2?(wLog.at(-1).w-wLog[0].w).toFixed(1):null;
-    const row = el("div",{marginBottom:i<STATE.members.length-1?"24px":"0"});
-    const top = el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"});
-    const left = el("div",{display:"flex",alignItems:"center",gap:"8px"});
-    left.appendChild(el("span",{fontSize:"15px",fontWeight:"600",color:T.text},m.name));
+  /* 이번 달 자동 통계 */
+  const thisMonth=now.toISOString().slice(0,7);
+  const monthSessions=S.schedules.filter(s=>s.date?.startsWith(thisMonth)&&s.status==="완료").length;
+  const plannedThisMonth=S.schedules.filter(s=>s.date?.startsWith(thisMonth)).length;
+
+  const hd=el("div",{marginBottom:"24px"});
+  hd.appendChild(el("p",{fontSize:"11px",color:T.text3,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"4px"},"Dashboard"));
+  hd.appendChild(el("h2",{fontFamily:"'Noto Serif KR',serif",fontSize:"26px",fontWeight:"700",color:T.text,marginBottom:"4px"},"오늘의 현황"));
+  hd.appendChild(el("p",{fontSize:"12px",color:T.text3},dateStr));
+  wrap.appendChild(hd);
+
+  /* 이번 달 요약 카드 */
+  const statGrid=el("div",{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px",marginBottom:"16px"});
+  [
+    {label:"전체 회원",value:S.members.length,unit:"명",color:T.text},
+    {label:"이번 달 완료",value:monthSessions,unit:"회",color:T.green},
+    {label:"이번 달 예정",value:plannedThisMonth,unit:"건",color:T.blue},
+  ].forEach(s=>{
+    const c=card({padding:"16px 12px",textAlign:"center"});
+    c.appendChild(el("p",{fontSize:"10px",color:T.text3,marginBottom:"6px",letterSpacing:"0.05em"},s.label));
+    c.appendChild(el("p",{fontFamily:"'Noto Serif KR',serif",fontSize:"26px",fontWeight:"700",color:s.color},`${s.value}<span style="font-size:12px;color:${T.text3};margin-left:2px">${s.unit}</span>`));
+    statGrid.appendChild(c);
+  });
+  wrap.appendChild(statGrid);
+
+  /* PT 진행률 */
+  const pc=card({marginBottom:"14px"});
+  const ph=el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"18px"});
+  ph.appendChild(lbl("회원별 PT 진행률"));
+  ph.appendChild(tag(`${S.members.length}명`));pc.appendChild(ph);
+  if(!S.members.length)pc.appendChild(el("p",{color:T.text4,fontSize:"14px",textAlign:"center",padding:"20px 0"},"등록된 회원이 없습니다"));
+  else S.members.forEach((m,i)=>{
+    const rem=m.sessions-m.used,pct=Math.round(m.used/m.sessions*100);
+    const wLog=m.weightLog||[],diff=wLog.length>=2?(wLog.at(-1).w-wLog[0].w).toFixed(1):null;
+    const low=rem<=3;
+    const row=el("div",{marginBottom:i<S.members.length-1?"20px":"0"});
+    const top=el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"});
+    const left=el("div",{display:"flex",alignItems:"center",gap:"8px"});
+    left.appendChild(el("span",{fontSize:"15px",fontWeight:"700",color:T.text},m.name));
     left.appendChild(tag(m.goal));
-    const right = el("div",{display:"flex",alignItems:"center",gap:"12px"});
-    if (diff!==null) right.appendChild(el("span",{fontSize:"12px",fontWeight:"600",color:+diff<0?T.green:+diff>0?T.red:T.text3},`${+diff>0?"+":""}${diff}kg`));
-    right.appendChild(el("span",{fontFamily:"'Playfair Display',serif",fontSize:"18px",color:rem<=3?T.red:T.text},`${rem}<span style="font-size:11px;color:${T.text3};margin-left:3px">회 남음</span>`));
-    top.appendChild(left); top.appendChild(right); row.appendChild(top);
-    row.appendChild(bar(m.used,m.sessions,rem<=3?T.red:"#fff"));
-    row.appendChild(el("p",{fontSize:"11px",color:T.text4,marginTop:"5px",textAlign:"right"},`${m.used}/${m.sessions}회 · ${pct}%`));
+    const right=el("div",{display:"flex",alignItems:"center",gap:"10px"});
+    if(diff!==null)right.appendChild(el("span",{fontSize:"12px",fontWeight:"700",color:+diff<0?T.green:+diff>0?T.red:T.text3},`${+diff>0?"+":""}${diff}kg`));
+    const remEl=el("div",{});
+    remEl.innerHTML=`<span style="font-family:'Noto Serif KR',serif;font-size:18px;font-weight:700;color:${low?T.red:T.accent}">${rem}</span><span style="font-size:11px;color:${T.text3};margin-left:2px">회 남음</span>`;
+    right.appendChild(remEl);
+    top.appendChild(left);top.appendChild(right);row.appendChild(top);
+    row.appendChild(bar(m.used,m.sessions,low?T.red:T.accent));
+    row.appendChild(el("p",{fontSize:"11px",color:T.text3,marginTop:"4px",textAlign:"right"},`${m.used}/${m.sessions}회 · ${pct}%`));
     pc.appendChild(row);
   });
   wrap.appendChild(pc);
 
-  // 오늘 일정
-  const todayStr = today();
-  const todayList = [...STATE.schedules.filter(s=>s.date===todayStr)].sort((a,b)=>a.time.localeCompare(b.time));
-  const sc = card();
-  const sh = el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px"});
-  sh.appendChild(lbl("오늘 일정")); sh.appendChild(tag(`${todayList.length}건`)); sc.appendChild(sh);
-  if (!todayList.length) sc.appendChild(el("p",{color:T.text4,fontSize:"14px",textAlign:"center",padding:"24px 0"},"오늘 예정된 세션이 없습니다"));
-  else todayList.forEach((s,i) => {
-    const m = STATE.members.find(x=>x.id===s.memberId);
-    const row = el("div",{display:"flex",alignItems:"center",gap:"14px",padding:"13px 0",borderTop:i===0?`1px solid ${T.border}`:"none",borderBottom:`1px solid ${T.border}`});
-    const tm = el("div",{background:T.surface2,borderRadius:"10px",padding:"8px 14px",minWidth:"64px",textAlign:"center"},`<p style="font-family:'Playfair Display',serif;font-size:17px;color:${T.text}">${s.time}</p>`);
-    const info = el("div",{flex:"1"},`<p style="font-size:15px;font-weight:600;color:${T.text}">${m?.name||""}</p><p style="font-size:12px;color:${T.text3};margin-top:2px">${s.duration}분</p>`);
-    row.appendChild(tm); row.appendChild(info);
-    if (s.status==="완료") row.appendChild(el("span",{fontSize:"11px",color:T.green,background:"#0b1f14",border:"1px solid #1a3528",borderRadius:"99px",padding:"4px 11px"},"완료"));
-    else row.appendChild(btn("완료",async()=>{await updateDoc2("schedules",s.id,{status:"완료"});toast("완료 처리!");},"outline","sm"));
+  /* 오늘 일정 */
+  const todayStr=today();
+  const todayList=[...S.schedules.filter(s=>s.date===todayStr)].sort((a,b)=>a.time.localeCompare(b.time));
+  const sc=card();
+  const sh=el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"18px"});
+  sh.appendChild(lbl("오늘 일정"));sh.appendChild(tag(`${todayList.length}건`,"blue"));sc.appendChild(sh);
+  if(!todayList.length)sc.appendChild(el("p",{color:T.text4,fontSize:"14px",textAlign:"center",padding:"20px 0"},"오늘 예정된 세션이 없습니다"));
+  else todayList.forEach((s,i)=>{
+    const m=S.members.find(x=>x.id===s.memberId);
+    const row=el("div",{display:"flex",alignItems:"center",gap:"12px",padding:"12px 0",borderTop:i===0?`1.5px solid ${T.border}`:"none",borderBottom:`1.5px solid ${T.border}`});
+    const tm=el("div",{background:T.surface2,borderRadius:"10px",padding:"8px 12px",minWidth:"60px",textAlign:"center"});
+    tm.appendChild(el("p",{fontFamily:"'Noto Serif KR',serif",fontSize:"16px",fontWeight:"700",color:T.text},s.time));
+    const info=el("div",{flex:"1"});
+    info.appendChild(el("p",{fontSize:"15px",fontWeight:"700",color:T.text},m?.name||""));
+    info.appendChild(el("p",{fontSize:"12px",color:T.text3,marginTop:"2px"},`${s.duration}분`));
+    row.appendChild(tm);row.appendChild(info);
+    if(s.status==="완료")row.appendChild(tag("완료","green"));
+    else row.appendChild(btn("완료",async()=>{await updateDoc2("schedules",s.id,{status:"완료"});toast("완료 처리!");},  "success","sm"));
     sc.appendChild(row);
   });
   wrap.appendChild(sc);
   return wrap;
 }
 
-// ── 회원 관리
-function renderMembers() {
-  const wrap = el("div",{});
-  const GOALS = ["체중감량","근육증가","체력향상","재활","다이어트","체형교정","유지"];
-  let detailId = null;
+/* ── 회원 관리 (비밀번호 설정 포함) */
+function renderMembers(){
+  const wrap=el("div",{});
+  const GOALS=["체중감량","근육증가","체력향상","재활","다이어트","체형교정","유지"];
+  let detailId=null;
 
-  const list = () => {
+  const list=()=>{
     wrap.innerHTML="";
-    wrap.appendChild(pageHdr("Members","회원 관리",btn("+ 신규 등록",()=>addModal(),"white","md")));
-    if (!STATE.members.length) { wrap.appendChild(el("p",{color:T.text4,fontSize:"14px",textAlign:"center",padding:"60px 0"},"등록된 회원이 없습니다")); return; }
-    STATE.members.forEach(m => {
-      const wLog=m.weightLog||[], w0=wLog[0]?.w, wN=wLog.at(-1)?.w;
-      const diff=wLog.length>=2?(wN-w0).toFixed(1):null, rem=m.sessions-m.used;
-      const c = card({marginBottom:"12px",cursor:"pointer"});
+    wrap.appendChild(pageHdr("Members","회원 관리",btn("+ 신규 등록",()=>addModal(),"dark","md")));
+    if(!S.members.length){wrap.appendChild(el("p",{color:T.text4,fontSize:"14px",textAlign:"center",padding:"60px 0"},"등록된 회원이 없습니다"));return;}
+    S.members.forEach(m=>{
+      const wLog=m.weightLog||[],w0=wLog[0]?.w,wN=wLog.at(-1)?.w;
+      const diff=wLog.length>=2?(wN-w0).toFixed(1):null,rem=m.sessions-m.used;
+
+      /* 이번 달 수업 수 자동 계산 */
+      const thisMonth=new Date().toISOString().slice(0,7);
+      const monthDone=S.schedules.filter(s=>s.memberId===m.id&&s.date?.startsWith(thisMonth)&&s.status==="완료").length;
+      const monthTotal=S.schedules.filter(s=>s.memberId===m.id&&s.date?.startsWith(thisMonth)).length;
+
+      const c=card({marginBottom:"12px",cursor:"pointer"});
       c.addEventListener("click",()=>{detailId=m.id;detail();});
-      const top = el("div",{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"});
-      const tl = el("div",{});
-      const nm = el("div",{display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"});
-      nm.appendChild(el("span",{fontFamily:"'Playfair Display',serif",fontSize:"20px",color:T.text},m.name));
+      const top=el("div",{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"14px"});
+      const tl=el("div",{});
+      const nm=el("div",{display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"});
+      nm.appendChild(el("span",{fontFamily:"'Noto Serif KR',serif",fontSize:"19px",fontWeight:"700",color:T.text},m.name));
       nm.appendChild(tag(`${m.age}세 ${m.gender}`));
-      tl.appendChild(nm); tl.appendChild(el("p",{fontSize:"12px",color:T.text3},m.phone||""));
-      top.appendChild(tl); top.appendChild(tag(m.goal)); c.appendChild(top);
-      const grid = el("div",{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"14px"});
-      [["키",`${m.height}cm`],["체중",`${wN}kg`],["변화",diff!==null?`${+diff>0?"+":""}${diff}kg`:"—"],["잔여PT",`${rem}회`]].forEach(([k,v])=>{
-        const cell = el("div",{background:T.surface2,borderRadius:"10px",padding:"10px 12px"});
-        cell.appendChild(el("p",{fontSize:"10px",color:T.text4,marginBottom:"5px"},k));
-        cell.appendChild(el("p",{fontFamily:"'Playfair Display',serif",fontSize:"17px",color:k==="잔여PT"&&rem<=3?T.red:k==="변화"&&diff!==null?(+diff<0?T.green:+diff>0?T.red:T.text):T.text},v));
+      tl.appendChild(nm);tl.appendChild(el("p",{fontSize:"12px",color:T.text3},m.phone||""));
+      top.appendChild(tl);top.appendChild(tag(m.goal));c.appendChild(top);
+      const grid=el("div",{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginBottom:"12px"});
+      [
+        ["키",`${m.height}cm`,"gray"],
+        ["체중",`${wN}kg`,"gray"],
+        ["변화",diff!==null?`${+diff>0?"+":""}${diff}kg`:"—",+diff<0?"green":+diff>0?"red":"gray"],
+        ["잔여PT",`${rem}회`,rem<=3?"red":"gray"],
+      ].forEach(([k,v,c2])=>{
+        const cell=el("div",{background:T.surface2,borderRadius:"10px",padding:"10px 10px"});
+        cell.appendChild(el("p",{fontSize:"10px",color:T.text3,marginBottom:"4px"},k));
+        cell.appendChild(el("p",{fontFamily:"'Noto Serif KR',serif",fontSize:"16px",fontWeight:"700",color:c2==="green"?T.green:c2==="red"?T.red:T.text},v));
         grid.appendChild(cell);
       });
-      c.appendChild(grid); c.appendChild(bar(m.used,m.sessions)); wrap.appendChild(c);
-    });
-  };
+      c.appendChild(grid);
 
-  const detail = () => {
-    wrap.innerHTML="";
-    const m = STATE.members.find(x=>x.id===detailId); if(!m){list();return;}
-    const wLog=m.weightLog||[], w0=wLog[0]?.w, wN=wLog.at(-1)?.w;
-    const diff=wLog.length>=2?(wN-w0).toFixed(1):null;
-    wrap.appendChild(btn("← 목록으로",()=>list(),"ghost","sm",{marginBottom:"22px"}));
-    const nh = el("div",{marginBottom:"24px"});
-    nh.appendChild(el("h2",{fontFamily:"'Playfair Display',serif",fontSize:"32px",color:T.text,marginBottom:"8px"},m.name));
-    const tgs = el("div",{display:"flex",gap:"8px",flexWrap:"wrap"});
-    [tag(`${m.age}세 ${m.gender}`),tag(m.goal),tag(`등록 ${m.startDate}`)].forEach(t=>tgs.appendChild(t));
-    nh.appendChild(tgs); wrap.appendChild(nh);
-
-    const wc = card({marginBottom:"12px"});
-    wc.appendChild(lbl("체중 변화"));
-    const wg = el("div",{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginTop:"14px",marginBottom:"18px"});
-    [["최초",`${w0}kg`],["현재",`${wN}kg`],["총 변화",diff!==null?`${+diff>0?"+":""}${diff}kg`:"—"]].forEach(([k,v])=>{
-      const cell=el("div",{background:T.surface2,borderRadius:"12px",padding:"14px"});
-      cell.appendChild(el("p",{fontSize:"10px",color:T.text4,marginBottom:"6px"},k));
-      cell.appendChild(el("p",{fontFamily:"'Playfair Display',serif",fontSize:"22px",color:k==="총 변화"&&diff!==null?(+diff<0?T.green:+diff>0?T.red:T.text):T.text},v));
-      wg.appendChild(cell);
-    });
-    wc.appendChild(wg);
-    wc.appendChild(el("p",{fontSize:"11px",color:T.text3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"12px"},"기록 내역"));
-    [...wLog].reverse().slice(0,6).forEach(w=>{
-      const row=el("div",{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`});
-      row.appendChild(el("span",{fontSize:"13px",color:T.text3},w.date));
-      row.appendChild(el("span",{fontFamily:"'Playfair Display',serif",fontSize:"17px",color:T.text},`${w.w} kg`));
-      wc.appendChild(row);
-    });
-    wc.appendChild(el("p",{fontSize:"11px",color:T.text4,marginTop:"12px",textAlign:"center"},"* 체중은 회원이 직접 입력합니다"));
-    wrap.appendChild(wc);
-
-    const bc = card({marginBottom:"12px"});
-    bc.appendChild(lbl("신체 정보"));
-    const bg = el("div",{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginTop:"14px"});
-    [["키",`${m.height}cm`],["전화번호",m.phone||"-"],["PT 잔여",`${m.sessions-m.used}회`],["진행 현황",`${m.used}/${m.sessions}회`]].forEach(([k,v])=>{
-      const cell=el("div",{background:T.surface2,borderRadius:"10px",padding:"12px 14px"});
-      cell.appendChild(el("p",{fontSize:"10px",color:T.text4,marginBottom:"5px"},k));
-      cell.appendChild(el("p",{fontSize:"15px",fontWeight:"600",color:T.text},v));
-      bg.appendChild(cell);
-    });
-    bc.appendChild(bg); bc.appendChild(el("div",{marginTop:"14px"})); bc.appendChild(bar(m.used,m.sessions));
-    wrap.appendChild(bc);
-    if (m.memo) { const mc=card(); mc.appendChild(lbl("트레이너 메모")); mc.appendChild(el("p",{fontSize:"14px",color:T.text2,lineHeight:"1.75",marginTop:"10px"},m.memo)); wrap.appendChild(mc); }
-  };
-
-  const addModal = () => {
-    const cnt = el("div",{});
-    const grid = el("div",{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"});
-    const fields = {};
-    const addF=(label,key,type,ph,col)=>{const f=fld(label);if(col)f.style.gridColumn=col;const i=inp({type:type||"text",placeholder:ph||""});f.appendChild(i);grid.appendChild(f);fields[key]=i;};
-    addF("이름","name","text","홍길동","1/-1");
-    addF("나이","age","number","25");
-    const gf=fld("성별"); const gs=sel(["여","남"],"여"); gf.appendChild(gs); grid.appendChild(gf); fields.gender=gs;
-    const gof=fld("운동 목표"); gof.style.gridColumn="1/-1"; const gos=sel(GOALS,GOALS[0]); gof.appendChild(gos); grid.appendChild(gof); fields.goal=gos;
-    addF("키 (cm)","height","number","165"); addF("초기 체중 (kg)","initWeight","number","60.0");
-    addF("PT 총 횟수","sessions","number","20"); addF("전화번호","phone","text","010-0000-0000");
-    const mf=fld("메모"); mf.style.gridColumn="1/-1"; const mt=ta("부상 이력, 주의사항 등"); mf.appendChild(mt); grid.appendChild(mf); fields.memo=mt;
-    cnt.appendChild(grid);
-    const sb=btn("등록하기",async()=>{
-      const name=fields.name.value.trim(); if(!name){toast("이름을 입력해주세요",false);return;}
-      sb.innerHTML=`<span class="spin">⟳</span> 저장 중...`;
-      try {
-        await addDoc2("members",{trainerId:uid(),name,age:+fields.age.value,gender:fields.gender.value,goal:fields.goal.value,sessions:+fields.sessions.value,used:0,startDate:today(),height:+fields.height.value,phone:fields.phone.value,memo:fields.memo.value,weightLog:[{date:today(),w:+fields.initWeight.value}]});
-        toast(`${name}님 등록 완료!`); document.querySelector(".ov")?.remove();
-      } catch(e){toast("오류가 발생했습니다",false);sb.textContent="등록하기";}
-    },"white","lg",{width:"100%",marginTop:"6px"});
-    cnt.appendChild(sb);
-    modal("신규 회원 등록",cnt,true);
-  };
-
-  list(); return wrap;
-}
-
-// ── 운동일지
-function renderWorkout() {
-  const wrap = el("div",{});
-  const isT = STATE.role==="trainer";
-  let filter = isT?"all":STATE.myMemberId;
-
-  const draw = () => {
-    wrap.innerHTML="";
-    wrap.appendChild(pageHdr("Workout","운동일지",btn("+ 기록하기",()=>addModal(),"white","md")));
-    if (isT) {
-      const fw=el("div",{display:"flex",gap:"8px",marginBottom:"22px",overflowX:"auto",paddingBottom:"4px"});
-      [{id:"all",name:"전체"},...STATE.members].forEach(m=>{
-        const active=filter===(m.id==="all"?"all":m.id);
-        const b=el("button",{padding:"7px 16px",borderRadius:"99px",border:`1px solid ${active?"#fff":T.border2}`,background:active?"#fff":"transparent",color:active?"#000":T.text3,fontSize:"13px",fontWeight:"600",cursor:"pointer",whiteSpace:"nowrap"},m.name);
-        b.addEventListener("click",()=>{filter=m.id==="all"?"all":m.id;draw();});
-        fw.appendChild(b);
-      });
-      wrap.appendChild(fw);
-    }
-    const shown=[...(filter==="all"?STATE.logs:STATE.logs.filter(l=>l.memberId===filter))].sort((a,b)=>b.date.localeCompare(a.date));
-    if (!shown.length){wrap.appendChild(el("p",{color:T.text4,fontSize:"14px",textAlign:"center",padding:"60px 0"},"기록이 없습니다"));return;}
-    shown.forEach(log=>{
-      const m=STATE.members.find(x=>x.id===log.memberId);
-      const vol=log.exercises.reduce((a,e)=>a+e.sets*e.reps*(e.weight||0),0);
-      const c=card({marginBottom:"12px"});
-      const top=el("div",{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"18px"});
-      top.innerHTML=`<div><p style="font-family:'Playfair Display',serif;font-size:19px;color:${T.text};margin-bottom:3px">${m?.name||""}</p><p style="font-size:12px;color:${T.text3}">${log.date}</p></div><div style="text-align:right"><p style="font-family:'Playfair Display',serif;font-size:17px;color:${T.text2}">${log.exercises.length}종목</p>${vol>0?`<p style="font-size:11px;color:${T.text3};margin-top:2px">${vol.toLocaleString()}kg vol</p>`:""}</div>`;
-      c.appendChild(top);
-      const th=el("div",{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:"6px",paddingBottom:"9px",borderBottom:`1px solid ${T.border}`,marginBottom:"4px"});
-      ["운동명","세트","횟수","무게"].forEach(h=>th.appendChild(el("p",{fontSize:"10px",color:T.text4,letterSpacing:"0.07em",textTransform:"uppercase"},h)));
-      c.appendChild(th);
-      log.exercises.forEach((ex,i)=>{
-        const row=el("div",{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:"6px",padding:"9px 0",borderBottom:i<log.exercises.length-1?`1px solid ${T.surface2}`:"none"});
-        row.innerHTML=`<p style="font-size:14px;font-weight:600;color:#e5e5e5">${ex.name}</p><p style="font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}">${ex.sets}</p><p style="font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}">${ex.reps}</p><p style="font-family:'Playfair Display',serif;font-size:14px;color:${T.text2}">${ex.weight>0?ex.weight+"kg":"—"}</p>`;
-        c.appendChild(row);
-      });
-      if(log.note){const np=el("p",{marginTop:"14px",fontSize:"13px",color:T.text3,lineHeight:"1.7",paddingTop:"14px",borderTop:`1px solid ${T.border}`},log.note);c.appendChild(np);}
+      /* 이번 달 수업 진행 바 */
+      const monthRow=el("div",{marginBottom:"10px"});
+      monthRow.appendChild(el("p",{fontSize:"11px",color:T.text3,marginBottom:"5px"},`이번 달 수업: ${monthDone}/${monthTotal}회 완료`));
+      if(monthTotal>0)monthRow.appendChild(bar(monthDone,monthTotal,T.blue));
+      c.appendChild(monthRow);
+      c.appendChild(bar(m.used,m.sessions));
       wrap.appendChild(c);
     });
   };
 
+  const detail=()=>{
+    wrap.innerHTML="";
+    const m=S.members.find(x=>x.id===detailId);if(!m){list();return;}
+    const wLog=m.weightLog||[],w0=wLog[0]?.w,wN=wLog.at(-1)?.w;
+    const diff=wLog.length>=2?(wN-w0).toFixed(1):null;
+    const thisMonth=new Date().toISOString().slice(0,7);
+    const monthDone=S.schedules.filter(s=>s.memberId===m.id&&s.date?.startsWith(thisMonth)&&s.status==="완료").length;
+    const monthTotal=S.schedules.filter(s=>s.memberId===m.id&&s.date?.startsWith(thisMonth)).length;
+
+    wrap.appendChild(btn("← 목록으로",()=>list(),"ghost","sm",{marginBottom:"20px"}));
+    const nh=el("div",{marginBottom:"22px"});
+    nh.appendChild(el("h2",{fontFamily:"'Noto Serif KR',serif",fontSize:"28px",fontWeight:"700",color:T.text,marginBottom:"8px"},m.name));
+    const tgs=el("div",{display:"flex",gap:"8px",flexWrap:"wrap"});
+    [tag(`${m.age}세 ${m.gender}`),tag(m.goal),tag(`등록 ${m.startDate}`)].forEach(t=>tgs.appendChild(t));
+    nh.appendChild(tgs);wrap.appendChild(nh);
+
+    /* 이번 달 수업 현황 */
+    const mc=card({marginBottom:"12px",background:T.blueBg,border:`1.5px solid #93c5fd`});
+    mc.appendChild(lbl("이번 달 수업 현황"));
+    const mg=el("div",{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginTop:"10px",marginBottom:"12px"});
+    [["이번 달 예정",`${monthTotal}회`],["완료",`${monthDone}회`],["잔여",`${monthTotal-monthDone}회`]].forEach(([k,v])=>{
+      const cell=el("div",{background:T.surface,borderRadius:"10px",padding:"12px",textAlign:"center"});
+      cell.appendChild(el("p",{fontSize:"10px",color:T.text3,marginBottom:"4px"},k));
+      cell.appendChild(el("p",{fontFamily:"'Noto Serif KR',serif",fontSize:"20px",fontWeight:"700",color:T.blue},v));
+      mg.appendChild(cell);
+    });
+    mc.appendChild(mg);
+    if(monthTotal>0)mc.appendChild(bar(monthDone,monthTotal,T.blue));
+    wrap.appendChild(mc);
+
+    /* 체중 카드 */
+    const wc=card({marginBottom:"12px"});wc.appendChild(lbl("체중 변화"));
+    const wg=el("div",{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginTop:"10px",marginBottom:"16px"});
+    [["최초",`${w0}kg`],["현재",`${wN}kg`],["총 변화",diff!==null?`${+diff>0?"+":""}${diff}kg`:"—"]].forEach(([k,v])=>{
+      const cell=el("div",{background:T.surface2,borderRadius:"10px",padding:"12px",textAlign:"center"});
+      cell.appendChild(el("p",{fontSize:"10px",color:T.text3,marginBottom:"4px"},k));
+      cell.appendChild(el("p",{fontFamily:"'Noto Serif KR',serif",fontSize:"20px",fontWeight:"700",color:k==="총 변화"&&diff!==null?(+diff<0?T.green:+diff>0?T.red:T.text):T.text},v));
+      wg.appendChild(cell);
+    });
+    wc.appendChild(wg);
+    wc.appendChild(el("p",{fontSize:"11px",color:T.text3,marginBottom:"10px",letterSpacing:"0.05em"},"▸ 기록 내역"));
+    [...wLog].reverse().slice(0,6).forEach(w=>{
+      const row=el("div",{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`});
+      row.appendChild(el("span",{fontSize:"13px",color:T.text2},w.date));
+      row.appendChild(el("span",{fontFamily:"'Noto Serif KR',serif",fontSize:"16px",fontWeight:"600",color:T.text},`${w.w} kg`));
+      wc.appendChild(row);
+    });
+    wrap.appendChild(wc);
+
+    /* 신체 정보 */
+    const bc=card({marginBottom:"12px"});bc.appendChild(lbl("신체 정보"));
+    const bg=el("div",{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginTop:"10px"});
+    [["키",`${m.height}cm`],["전화번호",m.phone||"-"],["PT 잔여",`${m.sessions-m.used}회`],["총 진행",`${m.used}/${m.sessions}회`]].forEach(([k,v])=>{
+      const cell=el("div",{background:T.surface2,borderRadius:"10px",padding:"12px 14px"});
+      cell.appendChild(el("p",{fontSize:"11px",color:T.text3,marginBottom:"4px"},k));
+      cell.appendChild(el("p",{fontSize:"15px",fontWeight:"700",color:T.text},v));
+      bg.appendChild(cell);
+    });
+    bc.appendChild(bg);bc.appendChild(el("div",{marginTop:"12px"}));bc.appendChild(bar(m.used,m.sessions));
+    wrap.appendChild(bc);
+    if(m.memo){const mc2=card();mc2.appendChild(lbl("트레이너 메모"));mc2.appendChild(el("p",{fontSize:"14px",color:T.text2,lineHeight:"1.75",marginTop:"8px"},m.memo));wrap.appendChild(mc2);}
+  };
+
+  /* 회원 등록 모달 (비밀번호 포함) */
   const addModal=()=>{
     const cnt=el("div",{});
-    let selMid=isT?"":STATE.myMemberId;
-    if(isT){const mf=fld("회원");const ms=sel([{v:"",l:"회원 선택"},...STATE.members.map(m=>({v:m.id,l:m.name}))]);ms.addEventListener("change",e=>selMid=e.target.value);mf.appendChild(ms);cnt.appendChild(mf);}
+    const grid=el("div",{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"});
+    const fields={};
+    const addF=(label,key,type,ph,col)=>{const f=fld(label);if(col)f.style.gridColumn=col;const i=inp({type:type||"text",placeholder:ph||""});f.appendChild(i);grid.appendChild(f);fields[key]=i;};
+    addF("이름","name","text","홍길동","1/-1");
+    addF("나이","age","number","25");
+    const gf=fld("성별");const gs=sel(["여","남"],"여");gf.appendChild(gs);grid.appendChild(gf);fields.gender=gs;
+    const gof=fld("운동 목표");gof.style.gridColumn="1/-1";const gos=sel(GOALS,GOALS[0]);gof.appendChild(gos);grid.appendChild(gof);fields.goal=gos;
+    addF("키 (cm)","height","number","165");addF("초기 체중 (kg)","initWeight","number","60.0");
+    addF("PT 총 횟수","sessions","number","20");addF("전화번호","phone","text","010-0000-0000");
+
+    /* 회원 이메일 & 비밀번호 (회원 로그인용) */
+    cnt.appendChild(grid);
+    cnt.appendChild(divider());
+    cnt.appendChild(el("p",{fontSize:"13px",fontWeight:"700",color:T.text,marginBottom:"12px"},"🔐 회원 로그인 정보 설정"));
+    cnt.appendChild(el("p",{fontSize:"12px",color:T.text2,marginBottom:"14px",lineHeight:"1.6"},"회원님이 앱에 로그인할 때 사용할 이메일과 비밀번호를 설정해주세요."));
+    const ef=fld("회원 이메일");const ei=inp({type:"email",placeholder:"member@email.com"});ef.appendChild(ei);cnt.appendChild(ef);
+    const pf=fld("임시 비밀번호 (6자리 이상)");const pi=inp({type:"password",placeholder:"회원에게 알려줄 비밀번호"});pf.appendChild(pi);cnt.appendChild(pf);
+    const mf=fld("메모 / 특이사항");const mt=ta("부상 이력, 주의사항 등");mf.appendChild(mt);cnt.appendChild(mf);
+
+    const err=el("p",{color:T.red,fontSize:"13px",marginBottom:"12px",minHeight:"18px"},"");cnt.appendChild(err);
+    const sb=btn("등록하기",async()=>{
+      const name=fields.name.value.trim();
+      const email=ei.value.trim();
+      const pw=pi.value;
+      if(!name){toast("이름을 입력해주세요",false);return;}
+      if(!email){toast("이메일을 입력해주세요",false);return;}
+      if(pw.length<6){toast("비밀번호는 6자리 이상이어야 합니다",false);return;}
+      sb.innerHTML=`<span class="spin">⟳</span> 등록 중...`;err.textContent="";
+      try{
+        // Firebase Auth에 회원 계정 생성
+        const currentUser=auth.currentUser;
+        const trainerId=uid();
+        const cred=await auth.createUserWithEmailAndPassword(email,pw);
+        await cred.user.updateProfile({displayName:name});
+        const memberId=cred.user.uid+"_member";
+        // 회원 데이터 저장
+        await db.collection("members").add({
+          trainerId,name,age:+fields.age.value,gender:fields.gender.value,
+          goal:fields.goal.value,sessions:+fields.sessions.value,used:0,
+          startDate:today(),height:+fields.height.value,phone:fields.phone.value,
+          memo:mt.value,email,uid:cred.user.uid,
+          weightLog:[{date:today(),w:+fields.initWeight.value}],
+        });
+        // 트레이너 계정으로 다시 로그인
+        toast(`${name}님 등록 완료!`);
+        document.querySelector(".ov")?.remove();
+      }catch(e){
+        const msgs={"auth/email-already-in-use":"이미 사용중인 이메일입니다.","auth/invalid-email":"이메일 형식을 확인해주세요."};
+        err.textContent=msgs[e.code]||`오류: ${e.message}`;
+        sb.textContent="등록하기";
+      }
+    },"dark","lg",{width:"100%",marginTop:"4px"});
+    cnt.appendChild(sb);
+    modal("신규 회원 등록",cnt,true);
+  };
+
+  list();return wrap;
+}
+
+/* ── 운동일지 */
+function renderWorkout(){
+  const wrap=el("div",{});
+  const isT=S.role==="trainer";
+  let filter=isT?"all":S.myMemberId;
+  const draw=()=>{
+    wrap.innerHTML="";
+    wrap.appendChild(pageHdr("Workout","운동일지",btn("+ 기록하기",()=>addModal(),"dark","md")));
+    if(isT){
+      const fw=el("div",{display:"flex",gap:"8px",marginBottom:"20px",overflowX:"auto",paddingBottom:"4px"});
+      [{id:"all",name:"전체"},...S.members].forEach(m=>{
+        const active=filter===(m.id==="all"?"all":m.id);
+        const b=el("button",{padding:"7px 14px",borderRadius:"99px",border:`1.5px solid ${active?T.accent:T.border2}`,background:active?T.accent:"transparent",color:active?"#fff":T.text2,fontSize:"13px",fontWeight:"600",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"'Noto Sans KR',sans-serif"},m.name);
+        b.addEventListener("click",()=>{filter=m.id==="all"?"all":m.id;draw();});fw.appendChild(b);
+      });
+      wrap.appendChild(fw);
+    }
+    const shown=[...(filter==="all"?S.logs:S.logs.filter(l=>l.memberId===filter))].sort((a,b)=>b.date.localeCompare(a.date));
+    if(!shown.length){wrap.appendChild(el("p",{color:T.text4,fontSize:"14px",textAlign:"center",padding:"60px 0"},"기록이 없습니다"));return;}
+    shown.forEach(log=>{
+      const m=S.members.find(x=>x.id===log.memberId);
+      const vol=log.exercises.reduce((a,e)=>a+e.sets*e.reps*(e.weight||0),0);
+      const c=card({marginBottom:"12px"});
+      const top=el("div",{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"});
+      top.innerHTML=`<div><p style="font-family:'Noto Serif KR',serif;font-size:18px;font-weight:700;color:${T.text};margin-bottom:2px">${m?.name||""}</p><p style="font-size:12px;color:${T.text3}">${log.date}</p></div><div style="text-align:right"><p style="font-family:'Noto Serif KR',serif;font-size:16px;color:${T.text2}">${log.exercises.length}종목</p>${vol>0?`<p style="font-size:11px;color:${T.text3};margin-top:1px">${vol.toLocaleString()}kg</p>`:""}</div>`;
+      c.appendChild(top);
+      const th=el("div",{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:"6px",paddingBottom:"8px",borderBottom:`1.5px solid ${T.border}`,marginBottom:"4px"});
+      ["운동명","세트","횟수","무게"].forEach(h=>th.appendChild(el("p",{fontSize:"10px",color:T.text3,letterSpacing:"0.07em",textTransform:"uppercase",fontWeight:"600"},h)));
+      c.appendChild(th);
+      log.exercises.forEach((ex,i)=>{
+        const row=el("div",{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:"6px",padding:"8px 0",borderBottom:i<log.exercises.length-1?`1px solid ${T.border}`:"none"});
+        row.innerHTML=`<p style="font-size:14px;font-weight:600;color:${T.text}">${ex.name}</p><p style="font-size:14px;color:${T.text2}">${ex.sets}</p><p style="font-size:14px;color:${T.text2}">${ex.reps}</p><p style="font-size:14px;color:${T.text2}">${ex.weight>0?ex.weight+"kg":"—"}</p>`;
+        c.appendChild(row);
+      });
+      if(log.note){const np=el("p",{marginTop:"12px",fontSize:"13px",color:T.text2,lineHeight:"1.7",paddingTop:"12px",borderTop:`1px solid ${T.border}`},log.note);c.appendChild(np);}
+      wrap.appendChild(c);
+    });
+  };
+  const addModal=()=>{
+    const cnt=el("div",{});
+    let selMid=isT?"":S.myMemberId;
+    if(isT){const mf=fld("회원");const ms=sel([{v:"",l:"회원 선택"},...S.members.map(m=>({v:m.id,l:m.name}))]);ms.addEventListener("change",e=>selMid=e.target.value);mf.appendChild(ms);cnt.appendChild(mf);}
     const df=fld("날짜");const di=inp({type:"date",value:today()});df.appendChild(di);cnt.appendChild(df);
     cnt.appendChild(lbl("운동 목록"));
     const th=el("div",{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 28px",gap:"6px",marginBottom:"8px",marginTop:"8px"});
-    ["운동명","세트","횟수","무게(kg)",""].forEach(h=>th.appendChild(el("p",{fontSize:"10px",color:T.text4},h)));
-    cnt.appendChild(th);
-    const ew=el("div",{});cnt.appendChild(ew);
-    const exInputs=[];
+    ["운동명","세트","횟수","무게",""].forEach(h=>th.appendChild(el("p",{fontSize:"10px",color:T.text3},h)));cnt.appendChild(th);
+    const ew=el("div",{});cnt.appendChild(ew);const exInputs=[];
     const addRow=()=>{
       const row=el("div",{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 28px",gap:"6px",marginBottom:"8px"});
-      const ni=inp({type:"text",placeholder:"스쿼트"},{padding:"10px 12px"});
-      const si=inp({type:"number",placeholder:"4"},{padding:"10px"});
-      const ri=inp({type:"number",placeholder:"12"},{padding:"10px"});
-      const wi=inp({type:"number",placeholder:"60"},{padding:"10px"});
-      const dl=el("button",{background:T.surface2,border:`1px solid ${T.border2}`,borderRadius:"8px",color:T.text3,cursor:"pointer",fontSize:"16px"},"×");
+      const ni=inp({type:"text",placeholder:"스쿼트"},{padding:"9px 10px"});
+      const si=inp({type:"number",placeholder:"4"},{padding:"9px 8px"});
+      const ri=inp({type:"number",placeholder:"12"},{padding:"9px 8px"});
+      const wi=inp({type:"number",placeholder:"60"},{padding:"9px 8px"});
+      const dl=el("button",{background:T.surface2,border:`1.5px solid ${T.border}`,borderRadius:"8px",color:T.text3,cursor:"pointer",fontSize:"16px",fontFamily:"sans-serif"},"×");
       dl.addEventListener("click",()=>{row.remove();exInputs.splice(exInputs.findIndex(e=>e.row===row),1);});
-      [ni,si,ri,wi,dl].forEach(x=>row.appendChild(x));
-      ew.appendChild(row);exInputs.push({row,ni,si,ri,wi});
+      [ni,si,ri,wi,dl].forEach(x=>row.appendChild(x));ew.appendChild(row);exInputs.push({row,ni,si,ri,wi});
     };
     addRow();
-    cnt.appendChild(btn("+ 운동 추가",addRow,"ghost","sm",{marginBottom:"16px"}));
-    const nf=fld("메모 (선택)");const nt=ta("오늘 세션 특이사항");nf.appendChild(nt);cnt.appendChild(nf);
+    cnt.appendChild(btn("+ 운동 추가",addRow,"ghost","sm",{marginBottom:"14px"}));
+    const nf=fld("메모 (선택)");const nt=ta("오늘 세션 특이사항, 다음 목표 등");nf.appendChild(nt);cnt.appendChild(nf);
     const sb=btn("저장하기",async()=>{
-      const mid=isT?selMid:STATE.myMemberId;
-      if(!mid){toast("회원을 선택해주세요",false);return;}
+      const mid=selMid;if(!mid){toast("회원을 선택해주세요",false);return;}
       const exs=exInputs.filter(e=>e.ni.value).map(e=>({name:e.ni.value,sets:+e.si.value,reps:+e.ri.value,weight:+e.wi.value}));
       if(!exs.length){toast("운동을 입력해주세요",false);return;}
       sb.innerHTML=`<span class="spin">⟳</span> 저장 중...`;
-      const trainerId=isT?uid():STATE.members.find(x=>x.id===mid)?.trainerId;
+      const trainerId=isT?uid():S.members.find(x=>x.id===mid)?.trainerId;
       try{await addDoc2("logs",{trainerId,memberId:mid,date:di.value,exercises:exs,note:nt.value});toast("저장 완료!");document.querySelector(".ov")?.remove();}
       catch(e){toast("오류가 발생했습니다",false);sb.textContent="저장하기";}
-    },"white","lg",{width:"100%"});
-    cnt.appendChild(sb);
-    modal("운동일지 작성",cnt,true);
+    },"dark","lg",{width:"100%"});
+    cnt.appendChild(sb);modal("운동일지 작성",cnt,true);
   };
-
   draw();return wrap;
 }
 
-// ── 식단 (회원)
-function renderDietMember() {
+/* ── 식단 (회원) */
+function renderDietMember(){
   const wrap=el("div",{});
   const ICON={아침:"🌅",점심:"☀️",저녁:"🌙",간식:"🍎"};
-  wrap.appendChild(pageHdr("Nutrition","식단 기록",btn("+ 기록하기",()=>addModal(),"white","md")));
-  const myDiets=[...STATE.diets].sort((a,b)=>b.date.localeCompare(a.date));
-  if(!myDiets.length){wrap.appendChild(el("p",{color:T.text4,fontSize:"14px",textAlign:"center",padding:"60px 0"},"식단 기록이 없습니다"));}
+  wrap.appendChild(pageHdr("Nutrition","식단 기록",btn("+ 기록하기",()=>addModal(),"dark","md")));
+  const myDiets=[...S.diets].sort((a,b)=>b.date.localeCompare(a.date));
+  if(!myDiets.length)wrap.appendChild(el("p",{color:T.text4,fontSize:"14px",textAlign:"center",padding:"60px 0"},"식단 기록이 없습니다"));
   else myDiets.forEach(d=>{
     const c=card({marginBottom:"12px"});
-    const top=el("div",{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"18px"});
+    const top=el("div",{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"});
     top.appendChild(el("p",{fontSize:"13px",color:T.text3},d.date));
-    const kc=el("div",{textAlign:"right"});
-    kc.appendChild(el("p",{fontFamily:"'Playfair Display',serif",fontSize:"26px",color:T.text},d.totalKcal.toLocaleString()));
-    kc.appendChild(el("p",{fontSize:"10px",color:T.text3,letterSpacing:"0.07em"},"KCAL"));
-    top.appendChild(kc);c.appendChild(top);
+    const kc=el("div",{textAlign:"right"});kc.appendChild(el("p",{fontFamily:"'Noto Serif KR',serif",fontSize:"24px",fontWeight:"700",color:T.text},d.totalKcal.toLocaleString()));kc.appendChild(el("p",{fontSize:"10px",color:T.text3,letterSpacing:"0.07em"},"KCAL"));top.appendChild(kc);c.appendChild(top);
     d.meals.forEach(meal=>{
-      const mw=el("div",{marginBottom:"14px"});
-      mw.appendChild(el("p",{fontSize:"11px",color:T.text3,letterSpacing:"0.07em",marginBottom:"8px"},`${ICON[meal.time]||"🍽"} ${meal.time.toUpperCase()}`));
-      meal.items.forEach(it=>{
-        const row=el("div",{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${T.surface2}`});
-        row.appendChild(el("span",{fontSize:"14px",color:"#d0d0d0"},it.food));
-        row.appendChild(el("span",{fontFamily:"'Playfair Display',serif",fontSize:"14px",color:T.text2},`${it.kcal} kcal`));
-        mw.appendChild(row);
-      });
+      const mw=el("div",{marginBottom:"12px"});mw.appendChild(el("p",{fontSize:"11px",color:T.text3,letterSpacing:"0.07em",marginBottom:"8px",fontWeight:"600"},`${ICON[meal.time]||"🍽"} ${meal.time}`));
+      meal.items.forEach(it=>{const row=el("div",{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${T.border}`});row.appendChild(el("span",{fontSize:"14px",color:T.text},it.food));row.appendChild(el("span",{fontSize:"14px",fontWeight:"600",color:T.text2},`${it.kcal}kcal`));mw.appendChild(row);});
       c.appendChild(mw);
     });
-    c.appendChild(divider(14));
-    const tgs=el("div",{display:"flex",gap:"10px",flexWrap:"wrap"});
-    tgs.appendChild(tag(`💧 ${d.water}L`));tgs.appendChild(tag(`☕ 커피 ${d.coffee}잔`));c.appendChild(tgs);
+    c.appendChild(divider(12));
+    const tgs=el("div",{display:"flex",gap:"8px",flexWrap:"wrap"});tgs.appendChild(tag(`💧 ${d.water}L`));tgs.appendChild(tag(`☕ 커피 ${d.coffee}잔`));c.appendChild(tgs);
     if(d.trainerRating>0){
-      const fb=el("div",{marginTop:"14px",background:T.surface2,borderRadius:"12px",padding:"14px 16px"});
-      const fbt=el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:d.trainerComment?"10px":"0"});
-      fbt.appendChild(el("p",{fontSize:"11px",color:T.text3,letterSpacing:"0.07em"},"TRAINER FEEDBACK"));
-      fbt.appendChild(stars(d.trainerRating,null,15));fb.appendChild(fbt);
-      if(d.trainerComment)fb.appendChild(el("p",{fontSize:"13px",color:T.text2,lineHeight:"1.7"},d.trainerComment));
-      c.appendChild(fb);
+      const fb=el("div",{marginTop:"12px",background:T.surface2,borderRadius:"10px",padding:"12px 14px"});
+      const fbt=el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:d.trainerComment?"8px":"0"});
+      fbt.appendChild(el("p",{fontSize:"11px",color:T.text3,fontWeight:"700",letterSpacing:"0.06em"},"TRAINER FEEDBACK"));fbt.appendChild(stars(d.trainerRating,null,16));fb.appendChild(fbt);
+      if(d.trainerComment)fb.appendChild(el("p",{fontSize:"13px",color:T.text2,lineHeight:"1.7"},d.trainerComment));c.appendChild(fb);
     }
     wrap.appendChild(c);
   });
-
   const addModal=()=>{
-    const cnt=el("div",{});
-    const TIMES=["아침","점심","저녁","간식"];
+    const cnt=el("div",{});const TIMES=["아침","점심","저녁","간식"];
     let meals=[{time:"아침",items:[{food:"",kcal:""}]},{time:"점심",items:[{food:"",kcal:""}]},{time:"저녁",items:[{food:"",kcal:""}]}];
     const grid=el("div",{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"});
     const df=fld("날짜");df.style.gridColumn="1/-1";const di=inp({type:"date",value:today()});df.appendChild(di);
-    const wf=fld("수분 (L)");const wi=inp({type:"number",step:"0.5",placeholder:"2.0"});wf.appendChild(wi);
-    const cf=fld("커피 (잔)");const ci=inp({type:"number",placeholder:"1"});cf.appendChild(ci);
-    grid.appendChild(df);grid.appendChild(wf);grid.appendChild(cf);cnt.appendChild(grid);
-    cnt.appendChild(divider());
+    const wf=fld("수분(L)");const wi=inp({type:"number",step:"0.5",placeholder:"2.0"});wf.appendChild(wi);
+    const cf=fld("커피(잔)");const ci=inp({type:"number",placeholder:"1"});cf.appendChild(ci);
+    grid.appendChild(df);grid.appendChild(wf);grid.appendChild(cf);cnt.appendChild(grid);cnt.appendChild(divider());
     const aiRow=el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"});
     aiRow.appendChild(lbl("끼니별 식단"));
-    const aiBtn=el("button",{background:"#fff",color:"#000",border:"none",borderRadius:"9px",padding:"8px 16px",cursor:"pointer",fontSize:"12px",fontWeight:"700",display:"flex",alignItems:"center",gap:"6px"},"✦ AI 칼로리 자동계산");
+    const aiBtn=el("button",{background:T.accent,color:"#fff",border:"none",borderRadius:"9px",padding:"8px 16px",cursor:"pointer",fontSize:"12px",fontWeight:"700",fontFamily:"'Noto Sans KR',sans-serif"},"✦ AI 칼로리 자동계산");
     aiRow.appendChild(aiBtn);cnt.appendChild(aiRow);
-    cnt.appendChild(el("p",{fontSize:"11px",color:T.text4,marginBottom:"16px"},"음식명 입력 시 자동으로 kcal이 채워집니다."));
+    cnt.appendChild(el("p",{fontSize:"11px",color:T.text3,marginBottom:"14px"},"음식명 입력 시 자동으로 kcal이 채워집니다."));
     const mealArea=el("div",{});cnt.appendChild(mealArea);
-
     const drawMeals=()=>{
       mealArea.innerHTML="";
       meals.forEach((meal,mi)=>{
-        const mw=el("div",{marginBottom:"20px"});
-        mw.appendChild(el("p",{fontSize:"12px",color:T.text2,marginBottom:"10px"},`${ICON[meal.time]} ${meal.time}`));
+        const mw=el("div",{marginBottom:"18px"});mw.appendChild(el("p",{fontSize:"13px",fontWeight:"700",color:T.text2,marginBottom:"10px"},`${ICON[meal.time]} ${meal.time}`));
         meal.items.forEach((it,ii)=>{
           const row=el("div",{display:"grid",gridTemplateColumns:"3fr 1fr",gap:"8px",marginBottom:"8px"});
-          const fi=inp({type:"text",placeholder:"음식명 (예: 닭가슴살)"},{padding:"10px 12px"});
-          fi.value=it.food;
-          const ki=inp({type:"number",placeholder:"kcal"},{padding:"10px",color:it.kcal?T.green:T.text3});
-          ki.value=it.kcal||"";
+          const fi=inp({type:"text",placeholder:"음식명"},{padding:"10px 12px"});fi.value=it.food;
+          const ki=inp({type:"number",placeholder:"kcal"},{padding:"10px",color:it.kcal?T.green:T.text3});ki.value=it.kcal||"";
           fi.addEventListener("input",e=>{const k=findKcal(e.target.value);meals[mi].items[ii].food=e.target.value;if(k!==null){meals[mi].items[ii].kcal=k;ki.value=k;ki.style.color=T.green;}});
           ki.addEventListener("input",e=>meals[mi].items[ii].kcal=+e.target.value);
           row.appendChild(fi);row.appendChild(ki);mw.appendChild(row);
         });
-        const ab=el("button",{background:"none",border:"none",color:T.text4,fontSize:"12px",cursor:"pointer",padding:"0"},"+ 음식 추가");
-        ab.addEventListener("click",()=>{meals[mi].items.push({food:"",kcal:""});drawMeals();});
-        mw.appendChild(ab);mealArea.appendChild(mw);
+        const ab=el("button",{background:"none",border:"none",color:T.text3,fontSize:"12px",cursor:"pointer",padding:"0",fontFamily:"'Noto Sans KR',sans-serif"},"+ 음식 추가");
+        ab.addEventListener("click",()=>{meals[mi].items.push({food:"",kcal:""});drawMeals();});mw.appendChild(ab);mealArea.appendChild(mw);
       });
     };
     drawMeals();
-
     aiBtn.addEventListener("click",async()=>{
       const foods=meals.flatMap(m=>m.items.map(it=>it.food)).filter(Boolean);
       if(!foods.length){toast("음식을 먼저 입력해주세요",false);return;}
       aiBtn.innerHTML=`<span class="spin">⟳</span> 계산 중...`;
       try{
-        const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,messages:[{role:"user",content:`다음 음식 1인분 칼로리를 JSON으로만 반환. 키=음식명, 값=정수: ${foods.join(", ")}`}]})});
-        const data=await r.json();
-        const raw=data.content?.map(c=>c.text||"").join("").replace(/```json|```/g,"").trim();
-        const parsed=JSON.parse(raw);
+        const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,messages:[{role:"user",content:`다음 음식 1인분 칼로리를 JSON으로만. 키=음식명, 값=정수: ${foods.join(", ")}`}]})});
+        const data=await r.json();const raw=data.content?.map(c=>c.text||"").join("").replace(/```json|```/g,"").trim();const parsed=JSON.parse(raw);
         meals.forEach(meal=>meal.items.forEach(it=>{if(!it.food)return;const k=Object.keys(parsed).find(k=>k.includes(it.food)||it.food.includes(k));if(k)it.kcal=parsed[k];}));
         drawMeals();toast("칼로리 계산 완료!");
       }catch{meals.forEach(meal=>meal.items.forEach(it=>{const k=findKcal(it.food);if(k!==null)it.kcal=k;}));drawMeals();}
       aiBtn.innerHTML="✦ AI 칼로리 자동계산";
     });
-
-    const tot=()=>meals.reduce((a,m)=>a+m.items.reduce((b,it)=>b+(+it.kcal||0),0),0);
+    const aw=el("div",{display:"flex",gap:"8px",marginBottom:"14px",flexWrap:"wrap"});
+    TIMES.filter(t=>!meals.find(m=>m.time===t)).forEach(t=>{const b=el("button",{background:T.surface2,border:`1.5px solid ${T.border}`,borderRadius:"99px",padding:"5px 14px",fontSize:"12px",color:T.text3,cursor:"pointer",fontFamily:"'Noto Sans KR',sans-serif"},`+ ${t}`);b.addEventListener("click",()=>{meals.push({time:t,items:[{food:"",kcal:""}]});drawMeals();});aw.appendChild(b);});
+    cnt.appendChild(aw);
     const sb=btn("저장하기",async()=>{
       const valid=meals.map(m=>({...m,items:m.items.filter(it=>it.food)})).filter(m=>m.items.length>0);
       if(!valid.length){toast("식단을 입력해주세요",false);return;}
       const total=valid.reduce((a,m)=>a+m.items.reduce((b,it)=>b+(+it.kcal||0),0),0);
       sb.innerHTML=`<span class="spin">⟳</span> 저장 중...`;
-      const m=STATE.members.find(x=>x.id===STATE.myMemberId);
-      try{await addDoc2("diets",{trainerId:m?.trainerId,memberId:STATE.myMemberId,date:di.value,meals:valid,water:+wi.value,coffee:+ci.value,totalKcal:total,trainerRating:0,trainerComment:""});toast("식단 저장 완료!");document.querySelector(".ov")?.remove();}
+      const m=S.members.find(x=>x.id===S.myMemberId);
+      try{await addDoc2("diets",{trainerId:m?.trainerId,memberId:S.myMemberId,date:di.value,meals:valid,water:+wi.value,coffee:+ci.value,totalKcal:total,trainerRating:0,trainerComment:""});toast("식단 저장 완료!");document.querySelector(".ov")?.remove();}
       catch(e){toast("오류가 발생했습니다",false);sb.textContent="저장하기";}
-    },"white","lg",{width:"100%"});
-    cnt.appendChild(sb);
-    modal("식단 기록",cnt,true);
+    },"dark","lg",{width:"100%"});cnt.appendChild(sb);modal("식단 기록",cnt,true);
   };
   return wrap;
 }
 
-// ── 식단 검토 (트레이너)
-function renderDietReview() {
-  const wrap=el("div",{});
-  const ICON={아침:"🌅",점심:"☀️",저녁:"🌙",간식:"🍎"};
-  let filter="all", editId=null;
-
+/* ── 식단 검토 (트레이너) */
+function renderDietReview(){
+  const wrap=el("div",{});const ICON={아침:"🌅",점심:"☀️",저녁:"🌙",간식:"🍎"};
+  let filter="all",editId=null;
   const draw=()=>{
-    wrap.innerHTML="";
-    wrap.appendChild(pageHdr("Diet Review","식단 검토"));
-    const fw=el("div",{display:"flex",gap:"8px",marginBottom:"22px",overflowX:"auto",paddingBottom:"4px"});
-    [{id:"all",name:"전체"},...STATE.members].forEach(m=>{
-      const active=filter===(m.id==="all"?"all":m.id);
-      const b=el("button",{padding:"7px 16px",borderRadius:"99px",border:`1px solid ${active?"#fff":T.border2}`,background:active?"#fff":"transparent",color:active?"#000":T.text3,fontSize:"13px",fontWeight:"600",cursor:"pointer",whiteSpace:"nowrap"},m.name);
-      b.addEventListener("click",()=>{filter=m.id==="all"?"all":m.id;draw();});fw.appendChild(b);
-    });
+    wrap.innerHTML="";wrap.appendChild(pageHdr("Diet Review","식단 검토"));
+    const fw=el("div",{display:"flex",gap:"8px",marginBottom:"20px",overflowX:"auto",paddingBottom:"4px"});
+    [{id:"all",name:"전체"},...S.members].forEach(m=>{const active=filter===(m.id==="all"?"all":m.id);const b=el("button",{padding:"7px 14px",borderRadius:"99px",border:`1.5px solid ${active?T.accent:T.border2}`,background:active?T.accent:"transparent",color:active?"#fff":T.text2,fontSize:"13px",fontWeight:"600",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"'Noto Sans KR',sans-serif"},m.name);b.addEventListener("click",()=>{filter=m.id==="all"?"all":m.id;draw();});fw.appendChild(b);});
     wrap.appendChild(fw);
-    const shown=[...(filter==="all"?STATE.diets:STATE.diets.filter(d=>d.memberId===filter))].sort((a,b)=>b.date.localeCompare(a.date));
+    const shown=[...(filter==="all"?S.diets:S.diets.filter(d=>d.memberId===filter))].sort((a,b)=>b.date.localeCompare(a.date));
     if(!shown.length){wrap.appendChild(el("p",{color:T.text4,fontSize:"14px",textAlign:"center",padding:"60px 0"},"식단 기록이 없습니다"));return;}
     shown.forEach(d=>{
-      const m=STATE.members.find(x=>x.id===d.memberId);
-      const c=card({marginBottom:"12px"});
-      const top=el("div",{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"18px"});
-      const tl=el("div",{});
-      tl.appendChild(el("p",{fontFamily:"'Playfair Display',serif",fontSize:"19px",color:T.text,marginBottom:"3px"},m?.name||""));
-      tl.appendChild(el("p",{fontSize:"12px",color:T.text3},d.date));
-      const kc=el("div",{textAlign:"right"});
-      kc.appendChild(el("p",{fontFamily:"'Playfair Display',serif",fontSize:"24px",color:T.text},d.totalKcal.toLocaleString()));
-      kc.appendChild(el("p",{fontSize:"10px",color:T.text3,letterSpacing:"0.07em"},"KCAL"));
+      const m=S.members.find(x=>x.id===d.memberId);const c=card({marginBottom:"12px"});
+      const top=el("div",{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"});
+      const tl=el("div",{});tl.appendChild(el("p",{fontFamily:"'Noto Serif KR',serif",fontSize:"18px",fontWeight:"700",color:T.text,marginBottom:"2px"},m?.name||""));tl.appendChild(el("p",{fontSize:"12px",color:T.text3},d.date));
+      const kc=el("div",{textAlign:"right"});kc.appendChild(el("p",{fontFamily:"'Noto Serif KR',serif",fontSize:"22px",fontWeight:"700",color:T.text},d.totalKcal.toLocaleString()));kc.appendChild(el("p",{fontSize:"10px",color:T.text3,letterSpacing:"0.07em"},"KCAL"));
       top.appendChild(tl);top.appendChild(kc);c.appendChild(top);
-      d.meals.forEach(meal=>{
-        const mw=el("div",{marginBottom:"13px"});
-        mw.appendChild(el("p",{fontSize:"11px",color:T.text3,letterSpacing:"0.07em",marginBottom:"8px"},`${ICON[meal.time]||"🍽"} ${meal.time.toUpperCase()}`));
-        meal.items.forEach(it=>{const row=el("div",{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${T.surface2}`});row.appendChild(el("span",{fontSize:"14px",color:"#d0d0d0"},it.food));row.appendChild(el("span",{fontFamily:"'Playfair Display',serif",fontSize:"14px",color:T.text2},`${it.kcal} kcal`));mw.appendChild(row);});
-        c.appendChild(mw);
-      });
-      c.appendChild(divider(14));
-      const tgs=el("div",{display:"flex",gap:"10px",flexWrap:"wrap",marginBottom:"16px"});
-      tgs.appendChild(tag(`💧 ${d.water}L`));tgs.appendChild(tag(`☕ 커피 ${d.coffee}잔`));c.appendChild(tgs);
+      d.meals.forEach(meal=>{const mw=el("div",{marginBottom:"12px"});mw.appendChild(el("p",{fontSize:"11px",color:T.text3,letterSpacing:"0.07em",marginBottom:"8px",fontWeight:"600"},`${ICON[meal.time]||"🍽"} ${meal.time}`));meal.items.forEach(it=>{const row=el("div",{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${T.border}`});row.appendChild(el("span",{fontSize:"14px",color:T.text},it.food));row.appendChild(el("span",{fontSize:"14px",fontWeight:"600",color:T.text2},`${it.kcal}kcal`));mw.appendChild(row);});c.appendChild(mw);});
+      c.appendChild(divider(12));
+      const tgs=el("div",{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"14px"});tgs.appendChild(tag(`💧 ${d.water}L`));tgs.appendChild(tag(`☕ 커피 ${d.coffee}잔`));c.appendChild(tgs);
       c.appendChild(divider(0));
-      const ea=el("div",{paddingTop:"16px"});
+      const ea=el("div",{paddingTop:"14px"});
       if(editId!==d.id){
         const er=el("div",{display:"flex",justifyContent:"space-between",alignItems:"flex-start"});
         const left=el("div",{});
-        if(d.trainerRating>0){left.appendChild(stars(d.trainerRating,null,18));if(d.trainerComment)left.appendChild(el("p",{fontSize:"13px",color:T.text2,marginTop:"8px",lineHeight:"1.7",maxWidth:"300px"},d.trainerComment));}
-        else left.appendChild(el("p",{fontSize:"12px",color:T.text4},"피드백 미작성"));
+        if(d.trainerRating>0){left.appendChild(stars(d.trainerRating,null,18));if(d.trainerComment)left.appendChild(el("p",{fontSize:"13px",color:T.text2,marginTop:"6px",lineHeight:"1.7",maxWidth:"280px"},d.trainerComment));}
+        else left.appendChild(el("p",{fontSize:"12px",color:T.text3},"피드백 미작성"));
         er.appendChild(left);er.appendChild(btn(d.trainerRating>0?"수정":"평가하기",()=>{editId=d.id;draw();},"ghost","sm"));ea.appendChild(er);
-      } else {
+      }else{
         let sv=d.trainerRating||0;
-        ea.appendChild(el("p",{fontSize:"11px",color:T.text3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"14px"},"식단 평가"));
-        const sw=el("div",{marginBottom:"16px"});
-        const drawS=()=>{sw.innerHTML="";sw.appendChild(stars(sv,v=>{sv=v;drawS();},30));};drawS();ea.appendChild(sw);
-        const ct=ta("피드백 입력",{marginBottom:"12px"});ct.value=d.trainerComment||"";ea.appendChild(ct);
+        ea.appendChild(el("p",{fontSize:"12px",fontWeight:"700",color:T.text2,marginBottom:"12px"},"식단 평가"));
+        const sw=el("div",{marginBottom:"14px"});const drawS=()=>{sw.innerHTML="";sw.appendChild(stars(sv,v=>{sv=v;drawS();},28));};drawS();ea.appendChild(sw);
+        const ct=ta("피드백 입력 (예: 단백질 비율 좋음, 탄수화물 조금 늘려보세요)",{marginBottom:"12px"});ct.value=d.trainerComment||"";ea.appendChild(ct);
         const br=el("div",{display:"flex",gap:"8px"});
-        const sb=btn("저장",async()=>{sb.innerHTML=`<span class="spin">⟳</span>`;try{await updateDoc2("diets",d.id,{trainerRating:sv,trainerComment:ct.value});editId=null;toast("피드백 저장 완료!");}catch{toast("오류가 발생했습니다",false);}},  "white","md",{flex:"1"});
+        const sb=btn("저장",async()=>{sb.innerHTML=`<span class="spin">⟳</span>`;try{await updateDoc2("diets",d.id,{trainerRating:sv,trainerComment:ct.value});editId=null;toast("피드백 저장 완료!");}catch{toast("오류가 발생했습니다",false);}},"dark","md",{flex:"1"});
         br.appendChild(sb);br.appendChild(btn("취소",()=>{editId=null;draw();},"ghost","md"));ea.appendChild(br);
       }
       c.appendChild(ea);wrap.appendChild(c);
@@ -836,115 +873,152 @@ function renderDietReview() {
   draw();return wrap;
 }
 
-// ── 체중 (회원)
-function renderWeight() {
-  const wrap=el("div",{});
-  wrap.appendChild(pageHdr("Weight Tracking","체중 기록"));
-  const m=STATE.members.find(x=>x.id===STATE.myMemberId);
+/* ── 체중 (회원) */
+function renderWeight(){
+  const wrap=el("div",{});wrap.appendChild(pageHdr("Weight","체중 기록"));
+  const m=S.members.find(x=>x.id===S.myMemberId);
   if(!m){wrap.appendChild(el("p",{color:T.text4},"불러오는 중..."));return wrap;}
   const wLog=m.weightLog||[],w0=wLog[0]?.w,wN=wLog.at(-1)?.w;
   const diff=wLog.length>=2?(wN-w0).toFixed(1):null;
   const c=card({marginBottom:"14px"});c.appendChild(lbl("나의 체중 변화"));
-  const grid=el("div",{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginTop:"14px",marginBottom:"20px"});
+  const grid=el("div",{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginTop:"10px",marginBottom:"18px"});
   [["시작",`${w0}kg`],["현재",`${wLog.at(-1)?.w}kg`],["변화",diff!==null?`${+diff>0?"+":""}${diff}kg`:"—"]].forEach(([k,v])=>{
-    const cell=el("div",{background:T.surface2,borderRadius:"12px",padding:"16px 12px",textAlign:"center"});
-    cell.appendChild(el("p",{fontSize:"10px",color:T.text4,marginBottom:"8px"},k));
-    cell.appendChild(el("p",{fontFamily:"'Playfair Display',serif",fontSize:"22px",color:k==="변화"&&diff!==null?(+diff<0?T.green:+diff>0?T.red:T.text):T.text},v));
+    const cell=el("div",{background:T.surface2,borderRadius:"10px",padding:"14px 10px",textAlign:"center"});
+    cell.appendChild(el("p",{fontSize:"10px",color:T.text3,marginBottom:"6px",fontWeight:"600"},k));
+    cell.appendChild(el("p",{fontFamily:"'Noto Serif KR',serif",fontSize:"22px",fontWeight:"700",color:k==="변화"&&diff!==null?(+diff<0?T.green:+diff>0?T.red:T.text):T.text},v));
     grid.appendChild(cell);
   });
   c.appendChild(grid);
-  c.appendChild(el("p",{fontSize:"11px",color:T.text3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"12px"},"기록 내역"));
+  c.appendChild(el("p",{fontSize:"11px",color:T.text3,marginBottom:"10px",fontWeight:"600",letterSpacing:"0.05em"},"기록 내역"));
   [...wLog].reverse().slice(0,8).forEach(entry=>{
-    const row=el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${T.border}`});
-    row.appendChild(el("span",{fontSize:"13px",color:T.text3},entry.date));
-    row.appendChild(el("span",{fontFamily:"'Playfair Display',serif",fontSize:"18px",color:T.text},`${entry.w} kg`));
+    const row=el("div",{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.border}`});
+    row.appendChild(el("span",{fontSize:"13px",color:T.text2},entry.date));
+    row.appendChild(el("span",{fontFamily:"'Noto Serif KR',serif",fontSize:"17px",fontWeight:"600",color:T.text},`${entry.w} kg`));
     c.appendChild(row);
   });
   wrap.appendChild(c);
   const ic=card();ic.appendChild(lbl("오늘 체중 입력"));
-  const ir=el("div",{display:"flex",gap:"10px",marginTop:"14px"});
-  const wi=inp({type:"number",step:"0.1",placeholder:"59.5"},{flex:"1",fontSize:"22px",textAlign:"center"});
+  const ir=el("div",{display:"flex",gap:"10px",marginTop:"12px"});
+  const wi=inp({type:"number",step:"0.1",placeholder:"예) 59.5"},{flex:"1",fontSize:"20px",textAlign:"center",fontWeight:"700"});
   const sb=btn("저장",async()=>{
     if(!wi.value){toast("체중을 입력해주세요",false);return;}
-    const val=+wi.value,td=today();
-    sb.innerHTML=`<span class="spin">⟳</span>`;
-    try{const nl=[...(m.weightLog||[]),{date:td,w:val}];await updateDoc2("members",STATE.myMemberId,{weightLog:nl,weight:val});wi.value="";toast("체중 저장 완료! ✓");}
-    catch(e){toast("오류가 발생했습니다",false);}
-    sb.textContent="저장";
-  },"white","md");
+    const val=+wi.value,td=today();sb.innerHTML=`<span class="spin">⟳</span>`;
+    try{const nl=[...(m.weightLog||[]),{date:td,w:val}];await updateDoc2("members",S.myMemberId,{weightLog:nl,weight:val});wi.value="";toast("체중 저장 완료! ✓");}
+    catch(e){toast("오류가 발생했습니다",false);}sb.textContent="저장";
+  },"dark","md");
   ir.appendChild(wi);ir.appendChild(sb);ic.appendChild(ir);
-  ic.appendChild(el("p",{fontSize:"11px",color:T.text4,textAlign:"center",marginTop:"14px"},"입력하면 트레이너가 실시간으로 확인합니다"));
+  ic.appendChild(el("p",{fontSize:"11px",color:T.text3,textAlign:"center",marginTop:"12px"},"입력하면 트레이너가 실시간으로 확인합니다"));
   wrap.appendChild(ic);return wrap;
 }
 
-// ── 일정
-function renderSchedule() {
-  const wrap=el("div",{});
-  const isT=STATE.role==="trainer";
-  wrap.appendChild(pageHdr("Schedule","PT 일정",!isT?null:btn("+ 일정 추가",()=>addModal(),"white","md")));
-  const list=isT?STATE.schedules:STATE.schedules.filter(s=>s.memberId===STATE.myMemberId);
+/* ── 일정 */
+function renderSchedule(){
+  const wrap=el("div",{});const isT=S.role==="trainer";
+  wrap.appendChild(pageHdr("Schedule","PT 일정",!isT?null:btn("+ 일정 추가",()=>addModal(),"dark","md")));
+  const list=isT?S.schedules:S.schedules.filter(s=>s.memberId===S.myMemberId);
   const upcoming=[...list.filter(s=>s.status==="예정")].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   const done=[...list.filter(s=>s.status==="완료")].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
   const mkRow=(s,can)=>{
-    const m=STATE.members.find(x=>x.id===s.memberId);
-    const row=el("div",{display:"flex",alignItems:"center",gap:"14px",padding:"13px 0",borderBottom:`1px solid ${T.border}`});
-    const tm=el("div",{background:T.surface2,borderRadius:"10px",padding:"9px 14px",minWidth:"58px",textAlign:"center"});
-    tm.appendChild(el("p",{fontFamily:"'Playfair Display',serif",fontSize:"17px",color:T.text},s.time));
-    tm.appendChild(el("p",{fontSize:"10px",color:T.text4,marginTop:"2px"},s.date.slice(5)));
-    const info=el("div",{flex:"1"});
-    info.appendChild(el("p",{fontSize:"15px",fontWeight:"600",color:T.text},m?.name||""));
-    info.appendChild(el("p",{fontSize:"12px",color:T.text3,marginTop:"2px"},`${s.duration}분`));
+    const m=S.members.find(x=>x.id===s.memberId);
+    const row=el("div",{display:"flex",alignItems:"center",gap:"12px",padding:"12px 0",borderBottom:`1px solid ${T.border}`});
+    const tm=el("div",{background:T.surface2,borderRadius:"10px",padding:"8px 12px",minWidth:"58px",textAlign:"center"});
+    tm.appendChild(el("p",{fontFamily:"'Noto Serif KR',serif",fontSize:"16px",fontWeight:"700",color:T.text},s.time));
+    tm.appendChild(el("p",{fontSize:"10px",color:T.text3,marginTop:"2px"},s.date.slice(5)));
+    const info=el("div",{flex:"1"});info.appendChild(el("p",{fontSize:"15px",fontWeight:"700",color:T.text},m?.name||""));info.appendChild(el("p",{fontSize:"12px",color:T.text3,marginTop:"2px"},`${s.duration}분`));
     row.appendChild(tm);row.appendChild(info);
-    if(can)row.appendChild(btn("완료",async()=>{await updateDoc2("schedules",s.id,{status:"완료"});toast("완료 처리!");},"outline","sm"));
-    else{const b=el("span",{fontSize:"11px",color:T.green,background:"#0b1f14",border:"1px solid #1a3528",borderRadius:"99px",padding:"4px 11px"},"완료");row.appendChild(b);}
+    if(can)row.appendChild(btn("완료",async()=>{await updateDoc2("schedules",s.id,{status:"완료"});toast("완료 처리!");},  "success","sm"));
+    else row.appendChild(tag("완료","green"));
     return row;
   };
-  const uc=card({marginBottom:"14px"});
-  const uh=el("div",{display:"flex",justifyContent:"space-between",marginBottom:"16px"});
-  uh.appendChild(lbl("예정된 일정"));uh.appendChild(tag(`${upcoming.length}건`));uc.appendChild(uh);
-  if(!upcoming.length)uc.appendChild(el("p",{color:T.text4,fontSize:"14px",padding:"16px 0"},"예정된 일정이 없습니다"));
-  else upcoming.forEach(s=>uc.appendChild(mkRow(s,isT)));
-  wrap.appendChild(uc);
-  const dc=card();
-  const dh=el("div",{display:"flex",justifyContent:"space-between",marginBottom:"16px"});
-  dh.appendChild(lbl("완료된 세션"));dh.appendChild(tag(`${done.length}건`));dc.appendChild(dh);
-  if(!done.length)dc.appendChild(el("p",{color:T.text4,fontSize:"14px",padding:"16px 0"},"완료된 세션이 없습니다"));
-  else done.forEach(s=>dc.appendChild(mkRow(s,false)));
-  wrap.appendChild(dc);
-
+  const uc=card({marginBottom:"12px"});const uh=el("div",{display:"flex",justifyContent:"space-between",marginBottom:"14px"});uh.appendChild(lbl("예정된 일정"));uh.appendChild(tag(`${upcoming.length}건`,"blue"));uc.appendChild(uh);
+  if(!upcoming.length)uc.appendChild(el("p",{color:T.text4,fontSize:"14px",padding:"14px 0"},"예정된 일정이 없습니다"));
+  else upcoming.forEach(s=>uc.appendChild(mkRow(s,isT)));wrap.appendChild(uc);
+  const dc=card();const dh=el("div",{display:"flex",justifyContent:"space-between",marginBottom:"14px"});dh.appendChild(lbl("완료된 세션"));dh.appendChild(tag(`${done.length}건`,"green"));dc.appendChild(dh);
+  if(!done.length)dc.appendChild(el("p",{color:T.text4,fontSize:"14px",padding:"14px 0"},"완료된 세션이 없습니다"));
+  else done.forEach(s=>dc.appendChild(mkRow(s,false)));wrap.appendChild(dc);
   const addModal=()=>{
-    const cnt=el("div",{});
-    const mf=fld("회원");const ms=sel([{v:"",l:"회원 선택"},...STATE.members.map(m=>({v:m.id,l:m.name}))]);mf.appendChild(ms);cnt.appendChild(mf);
+    const cnt=el("div",{});const mf=fld("회원");const ms=sel([{v:"",l:"회원 선택"},...S.members.map(m=>({v:m.id,l:m.name}))]);mf.appendChild(ms);cnt.appendChild(mf);
     const grid=el("div",{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"});
     const df=fld("날짜");const di=inp({type:"date",value:today()});df.appendChild(di);
     const tf=fld("시간");const ti=inp({type:"time",value:"10:00"});tf.appendChild(ti);
-    const duf=fld("세션 시간 (분)");const dui=inp({type:"number",value:"60"});duf.appendChild(dui);
+    const duf=fld("세션 시간(분)");const dui=inp({type:"number",value:"60"});duf.appendChild(dui);
     grid.appendChild(df);grid.appendChild(tf);grid.appendChild(duf);cnt.appendChild(grid);
-    const sb=btn("일정 추가",async()=>{
-      if(!ms.value){toast("회원을 선택해주세요",false);return;}
-      sb.innerHTML=`<span class="spin">⟳</span> 저장 중...`;
-      try{await addDoc2("schedules",{trainerId:uid(),memberId:ms.value,date:di.value,time:ti.value,duration:+dui.value,status:"예정"});toast("일정 추가 완료!");document.querySelector(".ov")?.remove();}
-      catch(e){toast("오류가 발생했습니다",false);sb.textContent="일정 추가";}
-    },"white","lg",{width:"100%"});
+    const sb=btn("일정 추가",async()=>{if(!ms.value){toast("회원을 선택해주세요",false);return;}sb.innerHTML=`<span class="spin">⟳</span>`;try{await addDoc2("schedules",{trainerId:uid(),memberId:ms.value,date:di.value,time:ti.value,duration:+dui.value,status:"예정"});toast("일정 추가 완료!");document.querySelector(".ov")?.remove();}catch(e){toast("오류가 발생했습니다",false);sb.textContent="일정 추가";}  },"dark","lg",{width:"100%"});
     cnt.appendChild(sb);modal("PT 일정 추가",cnt);
   };
   return wrap;
 }
 
-// ════════════════════════════════
-// 앱 시작
-// ════════════════════════════════
-auth.onAuthStateChanged(user => {
-  if (user) {
-    STATE.role = "trainer";
-    STATE.tab = "dash";
-    loadTrainerData();
-    render();
-  } else {
-    if (STATE.role !== "member") {
-      STATE.role = null;
-      render();
+/* ── 자료 배포 */
+function renderResources(){
+  const wrap=el("div",{});const isT=S.role==="trainer";
+  wrap.appendChild(pageHdr("Resources","참고 자료",isT?btn("+ 자료 추가",()=>addModal(),"dark","md"):null));
+
+  if(!S.resources.length){
+    const empty=el("div",{textAlign:"center",padding:"60px 0"});
+    empty.appendChild(el("p",{fontSize:"40px",marginBottom:"12px"},"📚"));
+    empty.appendChild(el("p",{fontSize:"15px",fontWeight:"700",color:T.text2,marginBottom:"6px"},isT?"아직 공유된 자료가 없습니다":"트레이너가 자료를 공유하면 여기에 표시됩니다"));
+    empty.appendChild(el("p",{fontSize:"13px",color:T.text3},isT?"+ 자료 추가 버튼으로 회원들에게 자료를 배포해보세요":""));
+    wrap.appendChild(empty);
+  }else{
+    const CATS={운동:"🏋️",식단:"🥗",생활습관:"🌟",기타:"📄"};
+    S.resources.forEach(r=>{
+      const c=card({marginBottom:"12px"});
+      const top=el("div",{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"10px"});
+      const tl=el("div",{});
+      const nm=el("div",{display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"});
+      nm.appendChild(el("span",{fontSize:"20px"},CATS[r.category]||"📄"));
+      nm.appendChild(el("span",{fontSize:"16px",fontWeight:"700",color:T.text},r.title));
+      tl.appendChild(nm);tl.appendChild(el("p",{fontSize:"12px",color:T.text3},r.date));
+      top.appendChild(tl);top.appendChild(tag(r.category||"기타"));c.appendChild(top);
+      if(r.description)c.appendChild(el("p",{fontSize:"14px",color:T.text2,lineHeight:"1.7",marginBottom:"12px"},r.description));
+      if(r.content){
+        const cb=el("div",{background:T.surface2,borderRadius:"10px",padding:"14px",marginBottom:"12px"});
+        cb.appendChild(el("p",{fontSize:"13px",color:T.text2,lineHeight:"1.8",whiteSpace:"pre-wrap"},r.content));
+        c.appendChild(cb);
+      }
+      if(r.link){const lb=btn("🔗 링크 열기",()=>window.open(r.link,"_blank"),"light","sm",{marginBottom:"4px"});c.appendChild(lb);}
+      if(isT){
+        c.appendChild(divider(10));
+        c.appendChild(btn("삭제",async()=>{if(confirm("삭제할까요?"))await db.collection("resources").doc(r.id).delete();},"danger","sm"));
+      }
+      wrap.appendChild(c);
+    });
+  }
+  const addModal=()=>{
+    const cnt=el("div",{});
+    const tf=fld("자료 제목");const ti=inp({type:"text",placeholder:"예) 3대 운동 자세 가이드"});tf.appendChild(ti);cnt.appendChild(tf);
+    const cf=fld("카테고리");const cs=sel(["운동","식단","생활습관","기타"],"운동");cf.appendChild(cs);cnt.appendChild(cf);
+    const df=fld("설명 (선택)");const di=inp({type:"text",placeholder:"간단한 설명"});df.appendChild(di);cnt.appendChild(df);
+    const ctf=fld("내용");const cta2=ta("자료 내용을 입력하세요\n운동 방법, 식단 가이드 등",{minHeight:"120px"});ctf.appendChild(cta2);cnt.appendChild(ctf);
+    const lf=fld("링크 (선택)");const li=inp({type:"url",placeholder:"https://..."});lf.appendChild(li);cnt.appendChild(lf);
+    const sb=btn("배포하기",async()=>{
+      if(!ti.value.trim()){toast("제목을 입력해주세요",false);return;}
+      sb.innerHTML=`<span class="spin">⟳</span> 배포 중...`;
+      try{await addDoc2("resources",{trainerId:uid(),title:ti.value.trim(),category:cs.value,description:di.value,content:cta2.value,link:li.value,date:today()});toast("자료 배포 완료!");document.querySelector(".ov")?.remove();}
+      catch(e){toast("오류가 발생했습니다",false);sb.textContent="배포하기";}
+    },"dark","lg",{width:"100%"});cnt.appendChild(sb);modal("자료 추가",cnt,true);
+  };
+  return wrap;
+}
+
+/* ══════════════════════════════════════
+   앱 시작
+══════════════════════════════════════ */
+auth.onAuthStateChanged(async user=>{
+  if(user){
+    // 트레이너 계정인지 확인
+    const tSnap=await db.collection("trainers").doc(user.uid).get();
+    if(tSnap.exists){
+      S.role="trainer";S.tab="dash";
+      loadTrainerData();render();
+    } else {
+      // 회원 계정이면 자동 로그아웃 (회원은 직접 로그인 선택)
+      await auth.signOut();
+      S.role=null;render();
     }
+  }else{
+    if(S.role!=="member"){S.role=null;render();}
   }
 });
 </script>
